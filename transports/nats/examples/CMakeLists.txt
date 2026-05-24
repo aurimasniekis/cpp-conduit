@@ -1,0 +1,23 @@
+add_executable(conduit_nats_publish_subscribe nats_publish_subscribe.cpp)
+target_link_libraries(conduit_nats_publish_subscribe
+    PRIVATE conduit::transport_nats
+)
+conduit_set_warnings(conduit_nats_publish_subscribe PRIVATE)
+conduit_enable_sanitizers(conduit_nats_publish_subscribe)
+conduit_enable_clang_tidy(conduit_nats_publish_subscribe)
+
+add_executable(conduit_nats_multi_subject nats_multi_subject.cpp)
+target_link_libraries(conduit_nats_multi_subject
+    PRIVATE conduit::transport_nats
+)
+conduit_set_warnings(conduit_nats_multi_subject PRIVATE)
+conduit_enable_sanitizers(conduit_nats_multi_subject)
+conduit_enable_clang_tidy(conduit_nats_multi_subject)
+
+add_executable(conduit_nats_queue_group nats_queue_group.cpp)
+target_link_libraries(conduit_nats_queue_group
+    PRIVATE conduit::transport_nats
+)
+conduit_set_warnings(conduit_nats_queue_group PRIVATE)
+conduit_enable_sanitizers(conduit_nats_queue_group)
+conduit_enable_clang_tidy(conduit_nats_queue_group)

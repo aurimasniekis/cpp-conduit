@@ -1,0 +1,15 @@
+add_executable(conduit_amqp_publish_subscribe amqp_publish_subscribe.cpp)
+target_link_libraries(conduit_amqp_publish_subscribe
+    PRIVATE conduit::transport_amqp
+)
+conduit_set_warnings(conduit_amqp_publish_subscribe PRIVATE)
+conduit_enable_sanitizers(conduit_amqp_publish_subscribe)
+conduit_enable_clang_tidy(conduit_amqp_publish_subscribe)
+
+add_executable(conduit_amqp_multi_channel amqp_multi_channel.cpp)
+target_link_libraries(conduit_amqp_multi_channel
+    PRIVATE conduit::transport_amqp
+)
+conduit_set_warnings(conduit_amqp_multi_channel PRIVATE)
+conduit_enable_sanitizers(conduit_amqp_multi_channel)
+conduit_enable_clang_tidy(conduit_amqp_multi_channel)

@@ -1,0 +1,92 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CONDUIT_TRANSPORT_MQTT": "ON",
+        "CONDUIT_TRANSPORT_AMQP": "ON",
+        "CONDUIT_TRANSPORT_REDIS": "ON",
+        "CONDUIT_TRANSPORT_NATS": "ON",
+        "CONDUIT_TRANSPORT_ZMQ": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "relwithdebinfo",
+      "displayName": "RelWithDebInfo",
+      "binaryDir": "${sourceDir}/build/relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "minsizerel",
+      "displayName": "MinSizeRel",
+      "binaryDir": "${sourceDir}/build/minsizerel",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "MinSizeRel"
+      }
+    },
+    {
+      "name": "mqtt",
+      "displayName": "MQTT transport",
+      "binaryDir": "${sourceDir}/build/mqtt",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CONDUIT_TRANSPORT_MQTT": "ON"
+      }
+    },
+    {
+      "name": "nats",
+      "displayName": "NATS transport",
+      "binaryDir": "${sourceDir}/build/nats",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CONDUIT_TRANSPORT_NATS": "ON"
+      }
+    },
+    {
+      "name": "zmq",
+      "displayName": "ZeroMQ transport",
+      "binaryDir": "${sourceDir}/build/zmq",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CONDUIT_TRANSPORT_ZMQ": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "relwithdebinfo", "configurePreset": "relwithdebinfo" },
+    { "name": "minsizerel", "configurePreset": "minsizerel" },
+    { "name": "mqtt", "configurePreset": "mqtt" },
+    { "name": "nats", "configurePreset": "nats" },
+    { "name": "zmq", "configurePreset": "zmq" }
+  ],
+  "testPresets": [
+    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
+    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
+    { "name": "relwithdebinfo", "configurePreset": "relwithdebinfo", "output": { "outputOnFailure": true } },
+    { "name": "minsizerel", "configurePreset": "minsizerel", "output": { "outputOnFailure": true } },
+    { "name": "mqtt", "configurePreset": "mqtt", "output": { "outputOnFailure": true } },
+    { "name": "nats", "configurePreset": "nats", "output": { "outputOnFailure": true } },
+    { "name": "zmq", "configurePreset": "zmq", "output": { "outputOnFailure": true } }
+  ]
+}

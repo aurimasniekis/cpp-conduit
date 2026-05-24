@@ -1,0 +1,15 @@
+add_executable(conduit_redis_publish_subscribe redis_publish_subscribe.cpp)
+target_link_libraries(conduit_redis_publish_subscribe
+    PRIVATE conduit::transport_redis
+)
+conduit_set_warnings(conduit_redis_publish_subscribe PRIVATE)
+conduit_enable_sanitizers(conduit_redis_publish_subscribe)
+conduit_enable_clang_tidy(conduit_redis_publish_subscribe)
+
+add_executable(conduit_redis_multi_channel redis_multi_channel.cpp)
+target_link_libraries(conduit_redis_multi_channel
+    PRIVATE conduit::transport_redis
+)
+conduit_set_warnings(conduit_redis_multi_channel PRIVATE)
+conduit_enable_sanitizers(conduit_redis_multi_channel)
+conduit_enable_clang_tidy(conduit_redis_multi_channel)

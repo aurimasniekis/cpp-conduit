@@ -1,0 +1,56 @@
+---
+Language:        Cpp
+BasedOnStyle:    LLVM
+Standard:        c++20
+
+IndentWidth:     4
+TabWidth:        4
+UseTab:          Never
+ColumnLimit:     100
+
+PointerAlignment:               Left
+ReferenceAlignment:             Left
+AccessModifierOffset:           -4
+NamespaceIndentation:           None
+FixNamespaceComments:           true
+CompactNamespaces:              false
+
+AlignAfterOpenBracket:          Align
+AlignConsecutiveAssignments:    false
+AlignConsecutiveDeclarations:   false
+AlignTrailingComments:          true
+
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine:    false
+AllowShortLambdasOnASingleLine:  All
+AllowShortBlocksOnASingleLine:   Empty
+
+BinPackArguments:                false
+BinPackParameters:               false
+AlwaysBreakTemplateDeclarations: Yes
+BreakBeforeBraces:               Attach
+BreakConstructorInitializers:    BeforeColon
+
+SpaceAfterTemplateKeyword:       true
+SpacesBeforeTrailingComments:    2
+
+IncludeBlocks:   Regroup
+IncludeCategories:
+  - Regex:           '^<conduit/.*>'
+    Priority:        1
+  - Regex:           '^<nlohmann/.*>'
+    Priority:        2
+  - Regex:           '^<ulid/.*>'
+    Priority:        2
+  - Regex:           '^<gtest/.*>'
+    Priority:        2
+  - Regex:           '^<[a-z_]+>'
+    Priority:        4
+  - Regex:           '^<.*\.h>'
+    Priority:        5
+  - Regex:           '.*'
+    Priority:        3
+
+SortIncludes:    CaseSensitive
+SortUsingDeclarations: true

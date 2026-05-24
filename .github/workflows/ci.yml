@@ -1,0 +1,290 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CMAKE_GENERATOR: Ninja
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [Debug, Release]
+        compiler: [default]
+        include:
+          - os: ubuntu-latest
+            compiler: default
+            build_type: Debug
+            cc: gcc-14
+            cxx: g++-14
+          - os: ubuntu-latest
+            compiler: default
+            build_type: Release
+            cc: gcc-14
+            cxx: g++-14
+          - os: ubuntu-latest
+            compiler: gcc
+            build_type: Debug
+            cc: gcc-14
+            cxx: g++-14
+          - os: ubuntu-latest
+            compiler: clang
+            build_type: Debug
+            cc: clang-20
+            cxx: clang++-20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Ninja (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Install GCC 14
+        if: runner.os == 'Linux' && matrix.cxx == 'g++-14'
+        run: sudo apt-get install -y gcc-14 g++-14
+
+      - name: Install Clang 20
+        if: matrix.compiler == 'clang'
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          sudo add-apt-repository -y "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-20 main"
+          sudo apt-get update
+          sudo apt-get install -y clang-20
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build/_deps
+          key: deps-${{ matrix.os }}-${{ matrix.compiler }}-${{ hashFiles('cmake/Dependencies.cmake') }}
+          restore-keys: |
+            deps-${{ matrix.os }}-${{ matrix.compiler }}-
+
+      - name: Build + test
+        env:
+          CC:  ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+          BUILD_TYPE: ${{ matrix.build_type }}
+        run: make test
+
+      - name: Run examples
+        run: |
+          set -euo pipefail
+          failures=()
+          for ex in build/examples/conduit_*; do
+            if [ -x "$ex" ] && [ ! -d "$ex" ]; then
+              name="$(basename "$ex")"
+              echo "=== $name ==="
+              if ! "$ex" >/dev/null; then
+                echo "FAIL: $name (exit $?)"
+                failures+=("$name")
+              fi
+            fi
+          done
+          if [ ${#failures[@]} -ne 0 ]; then
+            echo "Examples that failed: ${failures[*]}"
+            exit 1
+          fi
+
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    env:
+      CC:  gcc-14
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y ninja-build gcc-14 g++-14
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build-san/_deps
+          key: deps-san-${{ hashFiles('cmake/Dependencies.cmake') }}
+
+      - name: Configure + build + test under sanitizers
+        env:
+          ASAN_OPTIONS:  detect_leaks=1:check_initialization_order=1:strict_init_order=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: make sanitize
+
+  clang-tidy:
+    name: clang-tidy
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install tools
+        run: brew install ninja llvm
+      - name: Put Homebrew clang-tidy on PATH
+        run: echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build-tidy/_deps
+          key: deps-tidy-macos-${{ hashFiles('cmake/Dependencies.cmake') }}
+      - name: Configure + build (runs clang-tidy)
+        run: make tidy
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install clang-format
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          sudo add-apt-repository -y "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-22 main"
+          sudo apt-get update
+          sudo apt-get install -y clang-format-22
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-22 100
+      - name: Check formatting
+        run: make format-check
+
+  mqtt:
+    name: MQTT transport
+    runs-on: ubuntu-latest
+    env:
+      CC:  gcc-14
+      CXX: g++-14
+      CONDUIT_MQTT_TEST_BROKER: tcp://localhost:1883
+    services:
+      mosquitto:
+        image: eclipse-mosquitto:2
+        ports:
+          - 1883:1883
+        options: >-
+          --health-cmd "mosquitto_sub -t '$$SYS/#' -C 1 -E -W 3 -i healthcheck >/dev/null 2>&1 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y ninja-build gcc-14 g++-14 libssl-dev
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build-mqtt/_deps
+          key: deps-mqtt-${{ hashFiles('cmake/Dependencies.cmake', 'cmake/MqttDependencies.cmake') }}
+      - name: Configure + build + test with MQTT transport
+        run: make mqtt
+
+  amqp:
+    name: AMQP transport
+    runs-on: ubuntu-latest
+    env:
+      CC:  gcc-14
+      CXX: g++-14
+      CONDUIT_AMQP_TEST_BROKER: amqp://guest:guest@localhost:5672/
+    services:
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y ninja-build gcc-14 g++-14 libssl-dev
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build-amqp/_deps
+          key: deps-amqp-${{ hashFiles('cmake/Dependencies.cmake', 'cmake/AmqpDependencies.cmake') }}
+      - name: Configure + build + test with AMQP transport
+        run: make amqp
+
+  nats:
+    name: NATS transport
+    runs-on: ubuntu-latest
+    env:
+      CC:  gcc-14
+      CXX: g++-14
+      CONDUIT_NATS_TEST_BROKER: nats://localhost:4222
+    services:
+      nats:
+        image: nats:2-alpine
+        ports:
+          - 4222:4222
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y ninja-build gcc-14 g++-14 libssl-dev
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build-nats/_deps
+          key: deps-nats-${{ hashFiles('cmake/Dependencies.cmake', 'cmake/NatsDependencies.cmake') }}
+      - name: Configure + build + test with NATS transport
+        run: make nats
+
+  redis:
+    name: Redis transport
+    runs-on: ubuntu-latest
+    env:
+      CC:  gcc-14
+      CXX: g++-14
+      CONDUIT_REDIS_TEST_BROKER: tcp://localhost:6379
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y ninja-build gcc-14 g++-14 libssl-dev
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build-redis/_deps
+          key: deps-redis-${{ hashFiles('cmake/Dependencies.cmake', 'cmake/RedisDependencies.cmake') }}
+      - name: Configure + build + test with Redis transport
+        run: make redis
+
+  zmq:
+    name: ZeroMQ transport
+    runs-on: ubuntu-latest
+    env:
+      CC:  gcc-14
+      CXX: g++-14
+      CONDUIT_ZMQ_TEST_ENDPOINT: tcp://127.0.0.1:25557
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y ninja-build gcc-14 g++-14
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build-zmq/_deps
+          key: deps-zmq-${{ hashFiles('cmake/Dependencies.cmake', 'cmake/ZmqDependencies.cmake') }}
+      - name: Configure + build + test with ZeroMQ transport
+        run: make zmq

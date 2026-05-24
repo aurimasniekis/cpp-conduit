@@ -1,0 +1,23 @@
+PROJECT_NAME           = "conduit"
+PROJECT_NUMBER         = @PROJECT_VERSION@
+PROJECT_BRIEF          = "@PROJECT_DESCRIPTION@"
+OUTPUT_DIRECTORY       = @CONDUIT_DOXYGEN_OUTPUT_DIR@
+INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/include \
+                         @CMAKE_CURRENT_SOURCE_DIR@/transports/amqp/include \
+                         @CMAKE_CURRENT_SOURCE_DIR@/transports/mqtt/include \
+                         @CMAKE_CURRENT_SOURCE_DIR@/transports/nats/include \
+                         @CMAKE_CURRENT_SOURCE_DIR@/transports/redis/include \
+                         @CMAKE_CURRENT_SOURCE_DIR@/transports/zmq/include \
+                         @CMAKE_CURRENT_SOURCE_DIR@/README.md
+USE_MDFILE_AS_MAINPAGE = @CMAKE_CURRENT_SOURCE_DIR@/README.md
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_XML           = NO
+WARN_AS_ERROR          = NO
+QUIET                  = YES
+JAVADOC_AUTOBRIEF      = YES
+MARKDOWN_SUPPORT       = YES
+BUILTIN_STL_SUPPORT    = YES

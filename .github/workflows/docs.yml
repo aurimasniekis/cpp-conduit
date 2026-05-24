@@ -1,0 +1,59 @@
+name: Doxygen Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Required by deploy-pages: the action mints an OIDC token to authenticate
+# to GitHub Pages and writes the deployment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow at most one in-flight Pages deployment, but don't cancel a running
+# deploy mid-publish — the docs site would end up in an inconsistent state.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Doxygen HTML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Doxygen + Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz ninja-build
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@v5
+        with:
+          path: build-docs/_deps
+          key: deps-docs-${{ hashFiles('cmake/Dependencies.cmake') }}
+
+      - name: Configure + generate docs
+        run: make docs
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build-docs/docs/html
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

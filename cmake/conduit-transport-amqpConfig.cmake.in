@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(conduit @PROJECT_VERSION@)
+find_dependency(amqpcpp)
+
+include("${CMAKE_CURRENT_LIST_DIR}/conduit-transport-amqpTargets.cmake")
+
+check_required_components(conduit-transport-amqp)

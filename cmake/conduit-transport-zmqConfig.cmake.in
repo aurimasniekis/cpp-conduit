@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(conduit @PROJECT_VERSION@)
+find_dependency(ZeroMQ)
+find_dependency(cppzmq)
+
+include("${CMAKE_CURRENT_LIST_DIR}/conduit-transport-zmqTargets.cmake")
+
+check_required_components(conduit-transport-zmq)

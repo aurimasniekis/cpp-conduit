@@ -1,0 +1,23 @@
+add_executable(conduit_mqtt_publish_subscribe mqtt_publish_subscribe.cpp)
+target_link_libraries(conduit_mqtt_publish_subscribe
+    PRIVATE conduit::transport_mqtt
+)
+conduit_set_warnings(conduit_mqtt_publish_subscribe PRIVATE)
+conduit_enable_sanitizers(conduit_mqtt_publish_subscribe)
+conduit_enable_clang_tidy(conduit_mqtt_publish_subscribe)
+
+add_executable(conduit_mqtt_chat mqtt_chat.cpp)
+target_link_libraries(conduit_mqtt_chat
+    PRIVATE conduit::transport_mqtt
+)
+conduit_set_warnings(conduit_mqtt_chat PRIVATE)
+conduit_enable_sanitizers(conduit_mqtt_chat)
+conduit_enable_clang_tidy(conduit_mqtt_chat)
+
+add_executable(conduit_mqtt_multi_topic mqtt_multi_topic.cpp)
+target_link_libraries(conduit_mqtt_multi_topic
+    PRIVATE conduit::transport_mqtt
+)
+conduit_set_warnings(conduit_mqtt_multi_topic PRIVATE)
+conduit_enable_sanitizers(conduit_mqtt_multi_topic)
+conduit_enable_clang_tidy(conduit_mqtt_multi_topic)

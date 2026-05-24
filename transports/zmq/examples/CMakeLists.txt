@@ -1,0 +1,23 @@
+add_executable(conduit_zmq_publish_subscribe zmq_publish_subscribe.cpp)
+target_link_libraries(conduit_zmq_publish_subscribe
+    PRIVATE conduit::transport_zmq
+)
+conduit_set_warnings(conduit_zmq_publish_subscribe PRIVATE)
+conduit_enable_sanitizers(conduit_zmq_publish_subscribe)
+conduit_enable_clang_tidy(conduit_zmq_publish_subscribe)
+
+add_executable(conduit_zmq_multi_endpoint zmq_multi_endpoint.cpp)
+target_link_libraries(conduit_zmq_multi_endpoint
+    PRIVATE conduit::transport_zmq
+)
+conduit_set_warnings(conduit_zmq_multi_endpoint PRIVATE)
+conduit_enable_sanitizers(conduit_zmq_multi_endpoint)
+conduit_enable_clang_tidy(conduit_zmq_multi_endpoint)
+
+add_executable(conduit_zmq_push_pull_pipeline zmq_push_pull_pipeline.cpp)
+target_link_libraries(conduit_zmq_push_pull_pipeline
+    PRIVATE conduit::transport_zmq
+)
+conduit_set_warnings(conduit_zmq_push_pull_pipeline PRIVATE)
+conduit_enable_sanitizers(conduit_zmq_push_pull_pipeline)
+conduit_enable_clang_tidy(conduit_zmq_push_pull_pipeline)
