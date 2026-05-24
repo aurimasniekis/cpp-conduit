@@ -71,7 +71,7 @@ include(FetchContent)
 FetchContent_Declare(
     conduit
     URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.1.0.tar.gz
-    URL_HASH SHA256=PLACEHOLDER
+    URL_HASH SHA256=fbff0d13a99835da3af810189b3fccb18b4909eb6f63438b3d76d49847a0f7d3
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(conduit)
@@ -116,7 +116,7 @@ include(FetchContent)
 FetchContent_Declare(
     conduit
     URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.1.0.tar.gz
-    URL_HASH SHA256=PLACEHOLDER
+    URL_HASH SHA256=fbff0d13a99835da3af810189b3fccb18b4909eb6f63438b3d76d49847a0f7d3
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(conduit)
