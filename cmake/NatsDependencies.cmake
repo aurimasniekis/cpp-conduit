@@ -53,3 +53,17 @@ foreach(_nats_target nats_static nats)
         endif()
     endif()
 endforeach()
+
+# nats.c v3.9.2's _growPool calls memcpy(dst, NULL, 0) on the first grow of
+# an empty dispatcher pool. The C standard says memcpy with a NULL source is
+# UB even when the length is zero, so UBSan's nonnull-attribute check trips
+# the moment nats_Open() runs. Disable that one check on cnats's own sources
+# under sanitizer builds; every other UBSan check stays active everywhere,
+# including in conduit's own NATS transport code.
+if(CONDUIT_ENABLE_SANITIZERS AND NOT MSVC)
+    foreach(_nats_target nats_static nats)
+        if(TARGET ${_nats_target})
+            target_compile_options(${_nats_target} PRIVATE -fno-sanitize=nonnull-attribute)
+        endif()
+    endforeach()
+endif()
