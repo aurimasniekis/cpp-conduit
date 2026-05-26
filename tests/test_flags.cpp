@@ -2,6 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <commons/color.hpp>
+#include <commons/display_info.hpp>
+
 namespace {
 
 struct UserFlagA : conduit::flags::Flag<"user.a"> {};
@@ -10,47 +13,80 @@ struct UserFlagB : conduit::flags::Flag<"user.b"> {};
 TEST(Flags, EmptyByDefault) {
     const conduit::flags::FlagSet s;
     EXPECT_TRUE(s.empty());
-    EXPECT_FALSE(s.has<conduit::flags::Direct>());
+    EXPECT_FALSE(s.contains<conduit::flags::Direct>());
 }
 
-TEST(Flags, SetAndHas) {
+TEST(Flags, InsertAndContains) {
     conduit::flags::FlagSet s;
-    s.set<conduit::flags::Direct>();
-    EXPECT_TRUE(s.has<conduit::flags::Direct>());
-    EXPECT_FALSE(s.has<conduit::flags::Durable>());
+    s.insert<conduit::flags::Direct>();
+    EXPECT_TRUE(s.contains<conduit::flags::Direct>());
+    EXPECT_FALSE(s.contains<conduit::flags::Durable>());
 }
 
 TEST(Flags, OfBuildsFromPack) {
     const auto s = conduit::flags::FlagSet::of<conduit::flags::Direct, conduit::flags::Durable>();
-    EXPECT_TRUE(s.has<conduit::flags::Direct>());
-    EXPECT_TRUE(s.has<conduit::flags::Durable>());
-    EXPECT_FALSE(s.has<conduit::flags::Persistent>());
+    EXPECT_TRUE(s.contains<conduit::flags::Direct>());
+    EXPECT_TRUE(s.contains<conduit::flags::Durable>());
+    EXPECT_FALSE(s.contains<conduit::flags::Persistent>());
 }
 
-TEST(Flags, UnsetRemoves) {
+TEST(Flags, EraseRemoves) {
     auto s = conduit::flags::FlagSet::of<conduit::flags::Direct>();
-    s.unset<conduit::flags::Direct>();
-    EXPECT_FALSE(s.has<conduit::flags::Direct>());
-}
-
-TEST(Flags, OrMerges) {
-    const auto a = conduit::flags::FlagSet::of<conduit::flags::Direct>();
-    const auto b = conduit::flags::FlagSet::of<conduit::flags::Durable>();
-    const auto merged = a | b;
-    EXPECT_TRUE(merged.has<conduit::flags::Direct>());
-    EXPECT_TRUE(merged.has<conduit::flags::Durable>());
+    s.erase<conduit::flags::Direct>();
+    EXPECT_FALSE(s.contains<conduit::flags::Direct>());
 }
 
 TEST(Flags, UserDefinedTagWorks) {
     const auto s = conduit::flags::FlagSet::of<UserFlagA>();
-    EXPECT_TRUE(s.has<UserFlagA>());
-    EXPECT_FALSE(s.has<UserFlagB>());
+    EXPECT_TRUE(s.contains<UserFlagA>());
+    EXPECT_FALSE(s.contains<UserFlagB>());
 }
 
-TEST(Flags, IndexStableAcrossFlagSets) {
-    const auto a = conduit::flags::FlagSet::of<UserFlagA, conduit::flags::LocalOnly>();
-    const auto b = conduit::flags::FlagSet::of<conduit::flags::LocalOnly, UserFlagA>();
-    EXPECT_EQ(a, b);
+TEST(Flags, BuiltInsLandInConduitCategory) {
+    EXPECT_EQ(conduit::flags::Direct::category_name, "conduit");
+    EXPECT_EQ(conduit::flags::Broadcast::category_name, "conduit");
+    EXPECT_EQ(conduit::flags::Direct::category::name, conduit::flags::ConduitFlagCategory::name);
+}
+
+TEST(Flags, UserFlagDefaultsToConduitCategory) {
+    EXPECT_EQ(UserFlagA::category_name, "conduit");
+}
+
+TEST(Flags, BuiltInsCarryDisplayInfo) {
+    static_assert(comms::Displayable<conduit::flags::Direct>);
+    static_assert(comms::Displayable<conduit::flags::Durable>);
+    static_assert(comms::Displayable<conduit::flags::Persistent>);
+    static_assert(comms::Displayable<conduit::flags::NoMiddleware>);
+    static_assert(comms::Displayable<conduit::flags::RequireAck>);
+    static_assert(comms::Displayable<conduit::flags::Broadcast>);
+    static_assert(comms::Displayable<conduit::flags::LocalOnly>);
+    static_assert(comms::Displayable<conduit::flags::RemoteOnly>);
+}
+
+TEST(Flags, DisplayInfoColorsMatchMuiPalette) {
+    EXPECT_EQ(comms::display_info<conduit::flags::Direct>().color, comms::Colors::mui::yellow_700);
+    EXPECT_EQ(comms::display_info<conduit::flags::Durable>().color, comms::Colors::mui::blue_700);
+    EXPECT_EQ(comms::display_info<conduit::flags::Persistent>().color,
+              comms::Colors::mui::teal_500);
+    EXPECT_EQ(comms::display_info<conduit::flags::NoMiddleware>().color,
+              comms::Colors::mui::grey_600);
+    EXPECT_EQ(comms::display_info<conduit::flags::RequireAck>().color,
+              comms::Colors::mui::green_600);
+    EXPECT_EQ(comms::display_info<conduit::flags::Broadcast>().color,
+              comms::Colors::mui::deep_orange_500);
+    EXPECT_EQ(comms::display_info<conduit::flags::LocalOnly>().color,
+              comms::Colors::mui::light_blue_500);
+    EXPECT_EQ(comms::display_info<conduit::flags::RemoteOnly>().color,
+              comms::Colors::mui::indigo_500);
+}
+
+TEST(Flags, BuiltInsRegisteredGlobally) {
+    const auto& reg = comms::GlobalFlagRegistry::instance();
+    EXPECT_TRUE(reg.find("direct").has_value());
+    EXPECT_TRUE(reg.find("durable").has_value());
+    EXPECT_TRUE(reg.find("require_ack").has_value());
+    EXPECT_TRUE(reg.find("broadcast").has_value());
+    EXPECT_FALSE(reg.find("does_not_exist").has_value());
 }
 
 }  // namespace

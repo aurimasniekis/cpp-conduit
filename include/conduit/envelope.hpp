@@ -203,8 +203,8 @@ inline parcel::json_t EventEnvelope::to_json() const {
     v_obj["name"] = std::string{name()};
 
     parcel::json_t flags_arr = parcel::json_t::array();
-    for (const auto& fn : flags.names()) {
-        flags_arr.push_back(fn);
+    for (const auto& f : flags) {
+        flags_arr.push_back(std::string{f.name});
     }
     v_obj["flags"] = std::move(flags_arr);
 
@@ -293,7 +293,9 @@ inline parcel::cell_t EventEnvelope::from_json(parcel::json_t const& j,
 
     if (v.contains("flags")) {
         for (const auto& fn : v.at("flags")) {
-            core->flags.set_by_name(fn.get<std::string>());
+            if (auto ref = comms::GlobalFlagRegistry::instance().find(fn.get<std::string>())) {
+                core->flags.insert(*ref);
+            }
         }
     }
 

@@ -85,9 +85,8 @@ struct Transport::Impl {
         try {
             EventEnvelope v;
             if (config.format == Format::Cbor) {
-                std::span<const std::uint8_t> bytes{reinterpret_cast<const std::uint8_t*>(data),
-                                                    static_cast<std::size_t>(len)};
-                v = registry->decode_cbor(bytes);
+                v = registry->decode_cbor(
+                    std::span<const char>{data, static_cast<std::size_t>(len)});
             } else {
                 auto j =
                     nlohmann::json::parse(std::string_view{data, static_cast<std::size_t>(len)});
@@ -135,7 +134,7 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
     }
     impl_->sink = [this](const EventEnvelopeView& v) { this->deliver_inbound(v); };
     impl_->error_sink = [this](const std::exception_ptr& ep) {
-        if (auto* b = this->bus()) {
+        if (const auto* b = this->bus()) {
             b->report_transport_error("nats", ep);
         }
     };
@@ -249,7 +248,7 @@ void Transport::dispatch(const EventEnvelopeView& v) {
         return;
     }
 
-    std::vector<std::uint8_t> payload;
+    std::vector<char> payload;
     if (impl_->config.format == Format::Json) {
         const auto j = encode_json(v);
         const auto str = j.dump();
@@ -264,7 +263,7 @@ void Transport::dispatch(const EventEnvelopeView& v) {
                                                 static_cast<int>(payload.size()));
     (void)s;
 
-    if (v.flags().has<flags::RequireAck>()) {
+    if (v.flags().contains<flags::RequireAck>()) {
         natsConnection_FlushTimeout(impl_->conn, 5000);
     }
 }

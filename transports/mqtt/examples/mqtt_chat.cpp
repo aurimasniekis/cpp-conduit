@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
     const std::string node = argv[1];
     const std::string text = (argc >= 3) ? argv[2] : ("hello from " + node);
 
-    std::signal(SIGINT, handle_sigint);
+    (void)std::signal(SIGINT, handle_sigint);
 
     const char* env_url = std::getenv("CONDUIT_MQTT_BROKER");
     const std::string broker = (env_url != nullptr) ? env_url : "tcp://localhost:1883";

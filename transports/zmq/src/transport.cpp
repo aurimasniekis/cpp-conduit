@@ -347,7 +347,7 @@ void Transport::dispatch(const EventEnvelopeView& v) {
         return;
     }
 
-    std::vector<std::uint8_t> payload;
+    std::vector<char> payload;
     if (impl_->config.format == Format::Json) {
         const auto str = encode_json(v).dump();
         payload.assign(str.begin(), str.end());

@@ -5,6 +5,8 @@
 
 #include <conduit/envelope.hpp>
 
+#include <commons/prioritized.hpp>
+
 #include <cstdint>
 #include <functional>
 #include <utility>
@@ -25,14 +27,14 @@ enum class TransportScope : std::uint8_t { Local, Remote };
 /// inbound leg before forwarding to the bus.
 using InboundSink = std::function<void(const EventEnvelopeView&)>;
 
-class Transport {
+class Transport : public comms::Prioritized {
 public:
     Transport() = default;
     Transport(const Transport&) = delete;
     Transport(Transport&&) noexcept = default;
     Transport& operator=(const Transport&) = delete;
     Transport& operator=(Transport&&) noexcept = default;
-    virtual ~Transport() = default;
+    ~Transport() override = default;
 
     [[nodiscard]] virtual TransportScope scope() const noexcept = 0;
 

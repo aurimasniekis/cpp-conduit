@@ -54,7 +54,7 @@ public:
     }
 
     void dispatch(const EventEnvelopeView& v) override {
-        if (const bool force_direct = v.flags().has<flags::Direct>();
+        if (const bool force_direct = v.flags().contains<flags::Direct>();
             mode_ == Execution::Direct || force_direct || !pool_) {
             deliver_inbound(v);
             return;

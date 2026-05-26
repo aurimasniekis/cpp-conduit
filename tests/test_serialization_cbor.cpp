@@ -32,12 +32,12 @@ TEST(SerializationCbor, RoundTrips) {
     conduit::serialization::EventRegistry reg;
     reg.add<Pong>();
 
-    auto v = reg.decode_cbor(std::span<const std::uint8_t>{bytes});
+    auto v = reg.decode_cbor(std::span<const char>{bytes});
     auto recovered = v.payload_as<Pong>();
     ASSERT_TRUE(recovered != nullptr);
     EXPECT_EQ(recovered->text, "hi");
     EXPECT_EQ(v.metadata().require_string("k"), "v");
-    EXPECT_TRUE(v.flags().has<conduit::flags::Durable>());
+    EXPECT_TRUE(v.flags().contains<conduit::flags::Durable>());
 }
 
 TEST(SerializationCbor, CborIsSmallerThanJsonForBinaryPayload) {

@@ -70,8 +70,8 @@ A few things to notice in this example:
 include(FetchContent)
 FetchContent_Declare(
     conduit
-    URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.1.1.tar.gz
-    URL_HASH SHA256=bf96ac3d4c02b3d4a56408b7b83560e0e4aef26b3c946cee5ed6b90e988aeef6
+    URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.2.0.tar.gz
+    URL_HASH SHA256=0000000000000000000000000000000000000000000000000000000000000000  # TODO: fill in after tagging v0.2.0
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(conduit)
@@ -115,8 +115,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 FetchContent_Declare(
     conduit
-    URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.1.1.tar.gz
-    URL_HASH SHA256=bf96ac3d4c02b3d4a56408b7b83560e0e4aef26b3c946cee5ed6b90e988aeef6
+    URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.2.0.tar.gz
+    URL_HASH SHA256=0000000000000000000000000000000000000000000000000000000000000000  # TODO: fill in after tagging v0.2.0
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(conduit)
@@ -134,6 +134,7 @@ target_link_libraries(my_app PRIVATE conduit::conduit)
   - `cpp-ulid` 1.0.0
   - `cpp-parcel` 0.1.0
   - `cpp-metadata` 0.1.0
+  - `cpp-commons` 0.1.1
 - Tests use GoogleTest 1.15.2 (only when `CONDUIT_BUILD_TESTS=ON`, default on top-level builds).
 - Each transport adapter brings its own dependencies, only when its option is enabled:
 

@@ -49,6 +49,10 @@ struct CurveConfig {
     bool is_server = false;
 };
 
+// NOLINTBEGIN(clang-analyzer-optin.performance.Padding)
+// Layout is grouped by pattern (PubSub / PushPull / RouterDealer) for human
+// readability; this Config is instantiated rarely (once per transport at
+// startup), so the wasted padding is not worth scrambling the field order for.
 struct Config {
     Pattern pattern = Pattern::PubSub;
 
@@ -81,6 +85,7 @@ struct Config {
 
     Format format = Format::Cbor;
 };
+// NOLINTEND(clang-analyzer-optin.performance.Padding)
 
 /// ZeroMQ pipe — one instance covers a pattern-specific pair of sockets and
 /// carries traffic in both directions: outbound `dispatch()` sends on the

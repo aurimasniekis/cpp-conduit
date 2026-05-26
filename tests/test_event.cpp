@@ -47,15 +47,15 @@ TEST(Event, RoundTripsThroughParcel) {
     reg.register_kind(OrderCreated::descriptor());
 
     const auto j = e.to_json();
-    auto cell = reg.cell_from_json(j);
-    auto restored = parcel::cell_cast<OrderCreated>(cell);
+    const auto cell = reg.cell_from_json(j);
+    const auto restored = parcel::cell_cast<OrderCreated>(cell);
     EXPECT_EQ(restored->order_id, "abc");
     EXPECT_DOUBLE_EQ(restored->total, 9.5);
 }
 
 TEST(Event, DefaultFlagsMixinDetected) {
     const auto fs = conduit::detail::collect_default_flags<AppConfigReloadEvent>();
-    EXPECT_TRUE(fs.has<conduit::flags::LocalOnly>());
+    EXPECT_TRUE(fs.contains<conduit::flags::LocalOnly>());
 
     const auto plain = conduit::detail::collect_default_flags<OrderCreated>();
     EXPECT_TRUE(plain.empty());
@@ -82,7 +82,7 @@ namespace {
 
 TEST(Event, EventTraitsSpecializationApplies) {
     const auto fs = conduit::detail::collect_default_flags<ThirdPartyEvent>();
-    EXPECT_TRUE(fs.has<conduit::flags::LocalOnly>());
+    EXPECT_TRUE(fs.contains<conduit::flags::LocalOnly>());
 }
 
 }  // namespace

@@ -100,6 +100,19 @@ public:
         }
     }
 
+    [[nodiscard]] EventEnvelope decode_cbor(std::span<const char> bytes) const {
+        try {
+            const auto j = parcel::json_t::from_cbor(bytes);
+            return decode_json(j);
+        } catch (const parcel::ParcelException& e) {
+            throw SerializationError{e.what()};
+        } catch (const SerializationError&) {
+            throw;
+        } catch (const std::exception& e) {
+            throw SerializationError{e.what()};
+        }
+    }
+
     /// Snapshot accessor for the underlying parcel registry. The returned
     /// shared_ptr pins one self-consistent registry version for its lifetime,
     /// even while `add_descriptor` concurrently swaps in newer versions.
@@ -122,8 +135,10 @@ private:
     return env.to_json();
 }
 
-[[nodiscard]] inline std::vector<std::uint8_t> encode_cbor(const EventEnvelope& env) {
-    return parcel::json_t::to_cbor(env.to_json());
+[[nodiscard]] inline std::vector<char> encode_cbor(const EventEnvelope& env) {
+    std::vector<char> out;
+    parcel::json_t::to_cbor(env.to_json(), out);
+    return out;
 }
 
 namespace serialization {

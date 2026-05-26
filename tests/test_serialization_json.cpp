@@ -72,8 +72,8 @@ TEST(SerializationJson, RoundTripPreservesFlags) {
     conduit::serialization::EventRegistry reg;
     reg.add<Ping>();
     auto v = reg.decode_json(j);
-    EXPECT_TRUE(v.flags().has<conduit::flags::Direct>());
-    EXPECT_TRUE(v.flags().has<conduit::flags::LocalOnly>());
+    EXPECT_TRUE(v.flags().contains<conduit::flags::Direct>());
+    EXPECT_TRUE(v.flags().contains<conduit::flags::LocalOnly>());
 }
 
 TEST(SerializationJson, UnknownNameThrows) {

@@ -45,24 +45,24 @@ TEST(Builder, FlagFluent) {
                    .flag<conduit::flags::Direct>()
                    .flag<conduit::flags::Durable>()
                    .build();
-    EXPECT_TRUE(env.flags().has<conduit::flags::Direct>());
-    EXPECT_TRUE(env.flags().has<conduit::flags::Durable>());
+    EXPECT_TRUE(env.flags().contains<conduit::flags::Direct>());
+    EXPECT_TRUE(env.flags().contains<conduit::flags::Durable>());
 }
 
 TEST(Builder, DefaultFlagsMixinApplied) {
     auto env = conduit::event(LocalOnlyEv{}).build();
-    EXPECT_TRUE(env.flags().has<conduit::flags::LocalOnly>());
+    EXPECT_TRUE(env.flags().contains<conduit::flags::LocalOnly>());
 }
 
 TEST(Builder, DefaultFlagsAdditive) {
     auto env = conduit::event(LocalOnlyEv{}).flag<conduit::flags::Durable>().build();
-    EXPECT_TRUE(env.flags().has<conduit::flags::LocalOnly>());
-    EXPECT_TRUE(env.flags().has<conduit::flags::Durable>());
+    EXPECT_TRUE(env.flags().contains<conduit::flags::LocalOnly>());
+    EXPECT_TRUE(env.flags().contains<conduit::flags::Durable>());
 }
 
 TEST(Builder, ImplicitConversionToEnvelope) {
     conduit::EventEnvelope env = conduit::event(Tick{3}).flag<conduit::flags::Direct>();
-    EXPECT_TRUE(env.flags().has<conduit::flags::Direct>());
+    EXPECT_TRUE(env.flags().contains<conduit::flags::Direct>());
     const auto p = env.payload_as<Tick>();
     ASSERT_TRUE(p != nullptr);
     EXPECT_EQ(p->n, 3);

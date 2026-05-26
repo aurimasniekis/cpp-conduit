@@ -45,7 +45,7 @@ int main(const int argc, char** argv) {
         std::cerr << "usage: " << argv[0] << " <push|pull>\n";
         return 2;
     }
-    std::signal(SIGINT, handle_sigint);
+    (void)std::signal(SIGINT, handle_sigint);
 
     const std::string mode = argv[1];
     const std::string endpoint = "tcp://127.0.0.1:25562";

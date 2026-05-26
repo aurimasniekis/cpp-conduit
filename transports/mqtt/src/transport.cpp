@@ -87,9 +87,7 @@ struct Transport::Impl : public virtual ::mqtt::callback {
             EventEnvelope v;
             if (config.format == Format::Cbor) {
                 const auto& payload = msg->get_payload();
-                std::span<const std::uint8_t> bytes{
-                    reinterpret_cast<const std::uint8_t*>(payload.data()), payload.size()};
-                v = registry->decode_cbor(bytes);
+                v = registry->decode_cbor(std::span<const char>{payload.data(), payload.size()});
             } else {
                 auto j = nlohmann::json::parse(msg->get_payload_str());
                 v = registry->decode_json(j);
@@ -122,7 +120,7 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
     }
     impl_->sink = [this](const EventEnvelopeView& v) { this->deliver_inbound(v); };
     impl_->error_sink = [this](const std::exception_ptr& ep) {
-        if (auto* b = this->bus()) {
+        if (const auto* b = this->bus()) {
             b->report_transport_error("mqtt", ep);
         }
     };
@@ -156,7 +154,7 @@ void Transport::dispatch(const EventEnvelopeView& v) {
     if (!impl_ || !impl_->client)
         return;
 
-    std::vector<std::uint8_t> payload;
+    std::vector<char> payload;
     if (impl_->config.format == Format::Json) {
         const auto j = encode_json(v);
         const auto str = j.dump();
@@ -171,7 +169,7 @@ void Transport::dispatch(const EventEnvelopeView& v) {
                                           impl_->config.qos,
                                           /*retained=*/false);
     const auto tok = impl_->client->publish(msg);
-    if (v.flags().has<flags::RequireAck>()) {
+    if (v.flags().contains<flags::RequireAck>()) {
         tok->wait_for(std::chrono::seconds(5));
     }
 }

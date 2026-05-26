@@ -12,7 +12,6 @@
 #include <conduit/envelope.hpp>
 #include <conduit/event.hpp>
 #include <conduit/filtered_transport.hpp>
-#include <conduit/fixed_string.hpp>
 #include <conduit/flags.hpp>
 #include <conduit/glob.hpp>
 #include <conduit/listener.hpp>

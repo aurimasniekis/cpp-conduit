@@ -131,8 +131,8 @@ TEST(EnvelopeWire, JsonRoundTripPreservesEveryField) {
 
     EXPECT_EQ(decoded.metadata().require_string("tenant"), "acme");
     EXPECT_EQ(decoded.metadata().require_string("region"), "eu-west");
-    EXPECT_TRUE(decoded.flags().has<conduit::flags::Durable>());
-    EXPECT_TRUE(decoded.flags().has<conduit::flags::RequireAck>());
+    EXPECT_TRUE(decoded.flags().contains<conduit::flags::Durable>());
+    EXPECT_TRUE(decoded.flags().contains<conduit::flags::RequireAck>());
 
     // Timestamps are encoded at millisecond resolution — compare at that grain.
     using msec = std::chrono::milliseconds;
@@ -168,11 +168,11 @@ TEST(EnvelopeWire, CborRoundTripPreservesEveryField) {
     const auto bytes = conduit::serialization::encode_cbor(env);
     EXPECT_GT(bytes.size(), 0U);
 
-    const auto decoded = reg.decode_cbor(std::span<const std::uint8_t>{bytes});
+    const auto decoded = reg.decode_cbor(std::span<const char>{bytes});
 
     EXPECT_EQ(decoded.id(), env.id());
     EXPECT_EQ(decoded.metadata().require_string("tenant"), "acme");
-    EXPECT_TRUE(decoded.flags().has<conduit::flags::Durable>());
+    EXPECT_TRUE(decoded.flags().contains<conduit::flags::Durable>());
 
     auto payload = decoded.payload_as<TwoField>();
     ASSERT_TRUE(payload != nullptr);

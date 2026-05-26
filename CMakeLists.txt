@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 project(conduit
-    VERSION     0.1.0
+    VERSION     0.2.0
     DESCRIPTION "Modern C++23 header-only event-dispatching / event-transport library"
     LANGUAGES   CXX
 )
@@ -69,13 +69,14 @@ target_link_libraries(conduit INTERFACE
     ulid::ulid
     parcel::parcel
     metadata::metadata
+    commons::commons
     Threads::Threads
 )
 
-if(CONDUIT_INSTALL AND (DEFINED nlohmann_json_SOURCE_DIR OR DEFINED ulid_SOURCE_DIR OR DEFINED parcel_SOURCE_DIR OR DEFINED metadata_SOURCE_DIR))
+if(CONDUIT_INSTALL AND (DEFINED nlohmann_json_SOURCE_DIR OR DEFINED ulid_SOURCE_DIR OR DEFINED parcel_SOURCE_DIR OR DEFINED metadata_SOURCE_DIR OR DEFINED commons_SOURCE_DIR))
     message(STATUS
         "conduit: CONDUIT_INSTALL disabled — a fetched dependency cannot be re-exported. "
-        "Install nlohmann_json / ulid / parcel / metadata via system package or find_package to re-enable install rules."
+        "Install nlohmann_json / ulid / parcel / metadata / commons via system package or find_package to re-enable install rules."
     )
     set(CONDUIT_INSTALL OFF)
 endif()

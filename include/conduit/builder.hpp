@@ -63,13 +63,13 @@ public:
 
     template <typename F>
     [[nodiscard]] EventBuilder& flag() {
-        core_.flags.set<F>();
+        core_.flags.template insert<F>();
         return *this;
     }
 
     template <typename... Fs>
     [[nodiscard]] EventBuilder& flags() {
-        (core_.flags.set<Fs>(), ...);
+        (core_.flags.template insert<Fs>(), ...);
         return *this;
     }
 

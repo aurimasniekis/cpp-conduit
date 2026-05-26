@@ -6,6 +6,8 @@
 #include <conduit/envelope.hpp>
 #include <conduit/event.hpp>
 
+#include <commons/prioritized.hpp>
+
 #include <concepts>
 #include <cstdint>
 #include <memory>
@@ -95,9 +97,11 @@ private:
     bool active_ = false;
 };
 
-/// Class-based listener — derive and override `on_event`.
+/// Class-based listener — derive and override `on_event`. Listeners are also
+/// `comms::Prioritized`, so subclasses may override `priority()` to control
+/// dispatch order on the bus.
 template <typename T>
-class EventListener {
+class EventListener : public comms::Prioritized {
 public:
     static_assert(std::derived_from<T, parcel::ICell>,
                   "EventListener<T>: T must derive from conduit::Event<T, Name>");
@@ -107,22 +111,25 @@ public:
     EventListener(EventListener&&) noexcept = default;
     EventListener& operator=(const EventListener&) = default;
     EventListener& operator=(EventListener&&) noexcept = default;
-    virtual ~EventListener() = default;
+    ~EventListener() override = default;
 
     virtual void on_event(const T&) = 0;
 };
 
 /// Multi-event subscriber base. Override `register_to(Bus&)` and use the
 /// `on(...)` helpers to register handlers; the produced subscriptions live
-/// on the subscriber for as long as it does.
-class EventSubscriber {
+/// on the subscriber for as long as it does. Subscribers are also
+/// `comms::Prioritized`; their priority is forwarded to each listener
+/// registered through the `on(...)` helpers unless an explicit priority is
+/// supplied on the call.
+class EventSubscriber : public comms::Prioritized {
 public:
     EventSubscriber() = default;
     EventSubscriber(const EventSubscriber&) = delete;
     EventSubscriber(EventSubscriber&&) noexcept = default;
     EventSubscriber& operator=(const EventSubscriber&) = delete;
     EventSubscriber& operator=(EventSubscriber&&) noexcept = default;
-    virtual ~EventSubscriber() = default;
+    ~EventSubscriber() override = default;
 
     virtual void register_to(Bus& bus) = 0;
 

@@ -17,6 +17,7 @@
 
 #include <ulid/ulid.h>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -47,11 +48,13 @@ namespace conduit::amqp {
 
 namespace {
 
-void set_nonblocking(int fd) {
-    const int flags = ::fcntl(fd, F_GETFL, 0);
-    if (flags >= 0) {
+void set_nonblocking(const int fd) {
+    // POSIX `fcntl` is variadic by design; that's the only way to call it.
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg, hicpp-vararg)
+    if (const int flags = ::fcntl(fd, F_GETFL, 0); flags >= 0) {
         ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     }
+    // NOLINTEND(cppcoreguidelines-pro-type-vararg, hicpp-vararg)
 }
 
 class TlsNotSupportedError : public std::runtime_error {
@@ -70,7 +73,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
     std::function<void(const std::exception_ptr&)> error_sink;
 
     // IO loop bookkeeping.
-    int wakeup_pipe[2]{-1, -1};
+    std::array<int, 2> wakeup_pipe{-1, -1};
     int amqp_fd = -1;
     int amqp_flags = 0;
     std::thread io_thread;
@@ -118,7 +121,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
         }
 #endif
 
-        if (::pipe(wakeup_pipe) != 0) {
+        if (::pipe(wakeup_pipe.data()) != 0) {
             throw std::runtime_error{"conduit::amqp::Transport: pipe() failed"};
         }
         set_nonblocking(wakeup_pipe[0]);
@@ -143,7 +146,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
 
     // -- TcpHandler --------------------------------------------------------
 
-    void monitor(AMQP::TcpConnection* /*c*/, int fd, int flags) override {
+    void monitor(AMQP::TcpConnection* /*c*/, const int fd, const int flags) override {
         amqp_fd = fd;
         amqp_flags = flags;
         // When called from within process() on the IO thread, the next poll
@@ -169,8 +172,8 @@ struct Transport::Impl final : public AMQP::TcpHandler {
         connected.store(false, std::memory_order_release);
 
         // Fail any pending publisher confirms so dispatch() callers don't hang.
-        std::lock_guard lock(confirms_mu);
-        for (auto& [tag, p] : pending_confirms) {
+        std::scoped_lock lock(confirms_mu);
+        for (auto& p : pending_confirms | std::views::values) {
             try {
                 p.set_value(false);
             } catch (...) {
@@ -213,7 +216,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
 
     void post(std::function<void()> task) {
         {
-            std::lock_guard lock(queue_mu);
+            std::scoped_lock lock(queue_mu);
             task_queue.push_back(std::move(task));
         }
         wake();
@@ -222,7 +225,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
     void drain_tasks() {
         std::deque<std::function<void()>> drained;
         {
-            std::lock_guard lock(queue_mu);
+            std::scoped_lock lock(queue_mu);
             drained.swap(task_queue);
         }
         for (auto& t : drained) {
@@ -234,9 +237,9 @@ struct Transport::Impl final : public AMQP::TcpHandler {
         }
     }
 
-    void drain_wakeup_pipe() noexcept {
-        char buf[64];
-        while (::read(wakeup_pipe[0], buf, sizeof(buf)) > 0) {
+    void drain_wakeup_pipe() const noexcept {
+        std::array<char, 64> buf{};
+        while (::read(wakeup_pipe[0], buf.data(), buf.size()) > 0) {
             // discard
         }
     }
@@ -248,7 +251,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
                 break;
             }
 
-            ::pollfd fds[2];
+            std::array<::pollfd, 2> fds{};
             int nfds = 1;
             fds[0].fd = wakeup_pipe[0];
             fds[0].events = POLLIN;
@@ -266,7 +269,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
                 nfds = 2;
             }
 
-            const int rc = ::poll(fds, static_cast<nfds_t>(nfds), 200);
+            const int rc = ::poll(fds.data(), static_cast<nfds_t>(nfds), 200);
             if (rc < 0) {
                 if (errno == EINTR) {
                     continue;
@@ -312,7 +315,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
         }
         // Run close on the IO thread, then stop the loop.
         std::promise<void> closed;
-        auto fut = closed.get_future();
+        const auto fut = closed.get_future();
         post([this, &closed]() {
             try {
                 if (channel) {
@@ -344,8 +347,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
     void connect_and_declare() {
         std::promise<std::string> bound_q;  // empty string == ok; "X" == error msg
         auto fut = bound_q.get_future();
-        std::shared_ptr<std::promise<std::string>> shared_p =
-            std::make_shared<std::promise<std::string>>(std::move(bound_q));
+        auto shared_p = std::make_shared<std::promise<std::string>>(std::move(bound_q));
 
         post([this, shared_p]() {
             try {
@@ -403,10 +405,10 @@ struct Transport::Impl final : public AMQP::TcpHandler {
                             .onSuccess([this, shared_p]() {
                                 channel->consume(bound_queue)
                                     .onReceived([this](const AMQP::Message& message,
-                                                       std::uint64_t deliveryTag,
+                                                       const std::uint64_t delivery_tag,
                                                        bool /*redelivered*/) {
                                         if (channel) {
-                                            channel->ack(deliveryTag);
+                                            channel->ack(delivery_tag);
                                         }
                                         deliver_message(message);
                                     })
@@ -439,11 +441,13 @@ struct Transport::Impl final : public AMQP::TcpHandler {
 
                 if (confirms_enabled) {
                     channel->confirmSelect()
-                        .onAck([this](std::uint64_t deliveryTag, bool multiple) {
-                            resolve_confirm(deliveryTag, multiple, true);
+                        .onAck([this](const std::uint64_t delivery_tag, const bool multiple) {
+                            resolve_confirm(delivery_tag, multiple, true);
                         })
-                        .onNack([this](std::uint64_t deliveryTag, bool multiple, bool /*req*/) {
-                            resolve_confirm(deliveryTag, multiple, false);
+                        .onNack([this](const std::uint64_t delivery_tag,
+                                       const bool multiple,
+                                       bool /*req*/) {
+                            resolve_confirm(delivery_tag, multiple, false);
                         });
                 }
             } catch (const std::exception& e) {
@@ -457,12 +461,11 @@ struct Transport::Impl final : public AMQP::TcpHandler {
             }
         });
 
-        const auto status = fut.wait_for(config.connect_timeout);
-        if (status != std::future_status::ready) {
+        if (const auto status = fut.wait_for(config.connect_timeout);
+            status != std::future_status::ready) {
             throw std::runtime_error{"conduit::amqp::Transport::attach: connect/declare timed out"};
         }
-        const std::string err = fut.get();
-        if (!err.empty()) {
+        if (const std::string err = fut.get(); !err.empty()) {
             throw std::runtime_error{std::string{"conduit::amqp::Transport::attach: "} + err};
         }
         if (error_seen.load(std::memory_order_acquire)) {
@@ -471,11 +474,11 @@ struct Transport::Impl final : public AMQP::TcpHandler {
         }
     }
 
-    void resolve_confirm(std::uint64_t deliveryTag, bool multiple, bool ok) {
-        std::lock_guard lock(confirms_mu);
+    void resolve_confirm(const std::uint64_t delivery_tag, const bool multiple, const bool ok) {
+        std::scoped_lock lock(confirms_mu);
         if (multiple) {
             for (auto it = pending_confirms.begin(); it != pending_confirms.end();) {
-                if (it->first <= deliveryTag) {
+                if (it->first <= delivery_tag) {
                     try {
                         it->second.set_value(ok);
                     } catch (...) {}
@@ -485,7 +488,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
                 }
             }
         } else {
-            if (auto it = pending_confirms.find(deliveryTag); it != pending_confirms.end()) {
+            if (const auto it = pending_confirms.find(delivery_tag); it != pending_confirms.end()) {
                 try {
                     it->second.set_value(ok);
                 } catch (...) {}
@@ -494,7 +497,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
         }
     }
 
-    void deliver_message(const AMQP::Message& message) {
+    void deliver_message(const AMQP::Message& message) const {
         if (!sink || !registry) {
             return;
         }
@@ -503,9 +506,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
                                            static_cast<std::size_t>(message.bodySize())};
             EventEnvelope v;
             if (config.format == Format::Cbor) {
-                std::span<const std::uint8_t> bytes{
-                    reinterpret_cast<const std::uint8_t*>(payload.data()), payload.size()};
-                v = registry->decode_cbor(bytes);
+                v = registry->decode_cbor(std::span<const char>{payload.data(), payload.size()});
             } else {
                 auto j = nlohmann::json::parse(payload);
                 v = registry->decode_json(j);
@@ -534,7 +535,7 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
     }
     impl_->sink = [this](const EventEnvelopeView& v) { this->deliver_inbound(v); };
     impl_->error_sink = [this](const std::exception_ptr& ep) {
-        if (auto* b = this->bus()) {
+        if (const auto* b = this->bus()) {
             b->report_transport_error("amqp", ep);
         }
     };
@@ -561,7 +562,7 @@ void Transport::dispatch(const EventEnvelopeView& v) {
         return;
     }
 
-    std::vector<std::uint8_t> payload;
+    std::vector<char> payload;
     if (impl_->config.format == Format::Json) {
         const auto j = encode_json(v);
         const auto str = j.dump();
@@ -570,7 +571,7 @@ void Transport::dispatch(const EventEnvelopeView& v) {
         payload = encode_cbor(v);
     }
 
-    const bool require_ack = v.flags().has<flags::RequireAck>() && impl_->confirms_enabled;
+    const bool require_ack = v.flags().contains<flags::RequireAck>() && impl_->confirms_enabled;
     std::future<bool> ack_fut;
     std::shared_ptr<std::promise<bool>> ack_promise;
     if (require_ack) {
@@ -591,21 +592,21 @@ void Transport::dispatch(const EventEnvelopeView& v) {
             return;
         }
         try {
-            AMQP::Envelope env(reinterpret_cast<const char*>(p.data()), p.size());
+            AMQP::Envelope env(p.data(), p.size());
             env.setContentType(content_type);
             if (impl_->config.persistent) {
                 env.setDeliveryMode(2);
             }
             const std::uint64_t tag = impl_->next_delivery_tag++;
             if (ack_promise) {
-                std::lock_guard lock(impl_->confirms_mu);
+                std::scoped_lock lock(impl_->confirms_mu);
                 impl_->pending_confirms.emplace(tag, std::move(*ack_promise));
             }
             const bool ok =
                 impl_->channel->publish(impl_->config.exchange, impl_->config.routing_key, env);
             if (!ok && ack_promise) {
-                std::lock_guard lock(impl_->confirms_mu);
-                if (auto it = impl_->pending_confirms.find(tag);
+                std::scoped_lock lock(impl_->confirms_mu);
+                if (const auto it = impl_->pending_confirms.find(tag);
                     it != impl_->pending_confirms.end()) {
                     try {
                         it->second.set_value(false);
@@ -634,7 +635,7 @@ void Transport::flush() {
     // Best-effort: post an empty task and wait for the IO thread to process it,
     // so any queued publishes have at least been handed to AMQP-CPP.
     std::promise<void> done;
-    auto fut = done.get_future();
+    const auto fut = done.get_future();
     impl_->post([&done]() {
         try {
             done.set_value();

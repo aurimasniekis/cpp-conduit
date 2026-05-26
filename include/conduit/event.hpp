@@ -81,7 +81,9 @@ template <typename T>
 [[nodiscard]] inline flags::FlagSet collect_default_flags() {
     flags::FlagSet s = event_traits<T>::default_flags();
     if constexpr (HasDefaultFlagsMixin<T>) {
-        s |= T::default_flags_value();
+        for (const auto& f : T::default_flags_value()) {
+            s.insert(f);
+        }
     }
     return s;
 }

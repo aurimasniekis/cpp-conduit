@@ -13,6 +13,8 @@
 #include <conduit/serialization.hpp>
 #include <conduit/transport.hpp>
 
+#include <commons/prioritized.hpp>
+
 #include <atomic>
 #include <concepts>
 #include <exception>
@@ -36,6 +38,18 @@ struct ListenerEntry {
     std::function<void(const EventEnvelope&)> handler;
     std::string name_or_pattern;  // empty if typed
     bool is_pattern = false;
+    int listener_priority = comms::Prioritized::DEFAULT_PRIORITY;
+
+    [[nodiscard]] int priority() const noexcept {
+        return listener_priority;
+    }
+
+    /// Identity is the subscription id — that's what the bus uses to dedupe
+    /// and remove a listener; two distinct subscriptions with the same handler
+    /// must still be distinct.
+    bool operator==(const ListenerEntry& other) const noexcept {
+        return id == other.id;
+    }
 };
 
 }  // namespace detail
@@ -77,13 +91,13 @@ public:
         auto m = std::make_shared<M>(std::forward<Args>(args)...);
         M& ref = *m;
         std::scoped_lock lock(mu_);
-        middleware_.push_back(std::move(m));
+        middleware_.insert(std::move(m));
         return ref;
     }
 
     void use_middleware(std::shared_ptr<Middleware> m) {
         std::scoped_lock lock(mu_);
-        middleware_.push_back(std::move(m));
+        middleware_.insert(std::move(m));
     }
 
     // -- Event registry ------------------------------------------------------
@@ -110,22 +124,28 @@ public:
     // -- Listener registration ----------------------------------------------
 
     /// Typed listener; the handler is called with `const EventEnvelope&` or
-    /// `const T&`, or a `shared_ptr<EventListener<T>>`.
+    /// `const T&`, or a `shared_ptr<EventListener<T>>`. When the handler is a
+    /// pointer-like to a `comms::Prioritized` and the caller does not pass an
+    /// explicit priority, the priority is inherited from the handler.
     template <typename T, typename F>
-    [[nodiscard]] Subscription listen(F&& handler) {
+    [[nodiscard]] Subscription listen(F&& handler,
+                                      int priority = comms::Prioritized::DEFAULT_PRIORITY) {
         static_assert(std::derived_from<T, parcel::ICell>,
                       "Bus::listen<T>(F): T must derive from conduit::Event<T, Name>");
 
         register_event<T>();
+        const int effective_priority = derive_listener_priority(handler, priority);
         auto wrapped = wrap_typed_handler<T>(std::forward<F>(handler));
         return register_listener_for_name(std::string{T::event_name_v},
                                           std::move(wrapped),
-                                          /*is_pattern=*/false);
+                                          /*is_pattern=*/false,
+                                          effective_priority);
     }
 
     template <typename T>
     [[nodiscard]] Subscription listen(std::shared_ptr<EventListener<T>> listener) {
         register_event<T>();
+        const int priority = listener ? listener->priority() : comms::Prioritized::DEFAULT_PRIORITY;
         auto wrapped = [listener](const EventEnvelope& v) {
             if (auto typed = v.payload_as<T>(); typed) {
                 listener->on_event(*typed);
@@ -133,16 +153,20 @@ public:
         };
         return register_listener_for_name(std::string{T::event_name_v},
                                           std::move(wrapped),
-                                          /*is_pattern=*/false);
+                                          /*is_pattern=*/false,
+                                          priority);
     }
 
     /// Runtime listener by exact name or glob pattern.
     template <typename F>
-    [[nodiscard]] Subscription listen(const std::string_view pattern, F&& handler) {
+    [[nodiscard]] Subscription listen(const std::string_view pattern,
+                                      F&& handler,
+                                      const int priority = comms::Prioritized::DEFAULT_PRIORITY) {
         const bool is_pattern = (pattern.contains('*'));
         std::function<void(const EventEnvelope&)> wrapped =
             [h = std::forward<F>(handler)](const EventEnvelope& v) mutable { h(v); };
-        return register_listener_for_name(std::string{pattern}, std::move(wrapped), is_pattern);
+        return register_listener_for_name(
+            std::string{pattern}, std::move(wrapped), is_pattern, priority);
     }
 
     // -- Subscribers --------------------------------------------------------
@@ -183,7 +207,7 @@ public:
         std::vector<std::shared_ptr<Transport>> tcopy;
         {
             std::scoped_lock lock(mu_);
-            tcopy = transports_;
+            tcopy.assign(transports_.begin(), transports_.end());
         }
         for (const auto& t : tcopy) {
             t->flush();
@@ -197,7 +221,7 @@ public:
         std::vector<std::shared_ptr<Transport>> tcopy;
         {
             std::scoped_lock lock(mu_);
-            tcopy = std::move(transports_);
+            tcopy.assign(transports_.begin(), transports_.end());
             transports_.clear();
         }
         for (const auto& t : tcopy) {
@@ -221,7 +245,7 @@ public:
         std::vector<detail::ListenerEntry> snapshot;
         {
             std::scoped_lock lock(mu_);
-            snapshot = listeners_;
+            snapshot.assign(listeners_.begin(), listeners_.end());
         }
         const std::string_view name = v.name();
         for (const auto& e : snapshot) {
@@ -242,12 +266,12 @@ public:
     /// to decode) through the middleware pipeline. Called by transport
     /// adapters from their inbound paths; user code rarely invokes this
     /// directly.
-    void report_transport_error(std::string_view transport,
+    void report_transport_error(const std::string_view transport,
                                 const std::exception_ptr& ep) const noexcept {
         std::vector<std::shared_ptr<Middleware>> snap;
         {
             std::scoped_lock lock(mu_);
-            snap = middleware_;
+            snap.assign(middleware_.begin(), middleware_.end());
         }
         for (const auto& m : snap) {
             try {
@@ -273,7 +297,22 @@ private:
     void attach_transport(std::shared_ptr<Transport> t) {
         t->attach(*this);
         std::scoped_lock lock(mu_);
-        transports_.push_back(std::move(t));
+        transports_.insert(std::move(t));
+    }
+
+    /// Pick the priority for a listener: if the caller passed an explicit non-
+    /// default value, honour it; otherwise inherit from the handler when it is
+    /// a pointer-like to a `Prioritized` (e.g. `shared_ptr<EventListener<T>>`).
+    template <typename H>
+    static int derive_listener_priority(const H& handler, int explicit_priority) noexcept {
+        if (explicit_priority != comms::Prioritized::DEFAULT_PRIORITY) {
+            return explicit_priority;
+        }
+        if constexpr (requires { handler->priority(); }) {
+            return handler ? handler->priority() : explicit_priority;
+        } else {
+            return explicit_priority;
+        }
     }
 
     template <typename T, typename F>
@@ -304,12 +343,15 @@ private:
 
     Subscription register_listener_for_name(std::string name_or_pattern,
                                             std::function<void(const EventEnvelope&)> handler,
-                                            const bool is_pattern) {
+                                            const bool is_pattern,
+                                            const int priority) {
         const auto id = next_id_.fetch_add(1, std::memory_order_relaxed) + 1;
         {
             std::scoped_lock lock(mu_);
-            listeners_.push_back(detail::ListenerEntry{
-                id, std::move(handler), std::move(name_or_pattern), is_pattern});
+            listeners_.insert(
+                priority,
+                detail::ListenerEntry{
+                    id, std::move(handler), std::move(name_or_pattern), is_pattern, priority});
         }
         return Subscription{
             std::static_pointer_cast<detail::SubscriptionBackref>(shared_from_this_safe()), id};
@@ -328,17 +370,17 @@ private:
     void publish_impl(const EventEnvelope& v) const {
         EventEnvelope local = v;  // shared core/payload — cheap
 
-        const bool local_only = local.flags().has<flags::LocalOnly>();
-        const bool remote_only = local.flags().has<flags::RemoteOnly>();
+        const bool local_only = local.flags().contains<flags::LocalOnly>();
+        const bool remote_only = local.flags().contains<flags::RemoteOnly>();
 
         local.timestamps().published_at = std::chrono::system_clock::now();
 
         // Middleware before_dispatch — unless NoMiddleware.
         std::vector<std::shared_ptr<Middleware>> mw_snapshot;
-        const bool run_mw = !local.flags().has<flags::NoMiddleware>();
+        const bool run_mw = !local.flags().contains<flags::NoMiddleware>();
         if (run_mw) {
             std::scoped_lock lock(mu_);
-            mw_snapshot = middleware_;
+            mw_snapshot.assign(middleware_.begin(), middleware_.end());
         }
 
         bool proceed = true;
@@ -362,7 +404,7 @@ private:
         std::vector<std::shared_ptr<Transport>> transports_snapshot;
         {
             std::scoped_lock lock(mu_);
-            transports_snapshot = transports_;
+            transports_snapshot.assign(transports_.begin(), transports_.end());
         }
 
         if (local_only && remote_only) {
@@ -413,7 +455,7 @@ private:
         std::vector<std::shared_ptr<Middleware>> snap;
         {
             std::scoped_lock lock(mu_);
-            snap = middleware_;
+            snap.assign(middleware_.begin(), middleware_.end());
         }
         EventEnvelope mv = v;
         for (const auto& m : snap) {
@@ -427,9 +469,9 @@ private:
 
     mutable std::mutex mu_;
     std::shared_ptr<EventRegistry> registry_;
-    std::vector<std::shared_ptr<Transport>> transports_;
-    std::vector<std::shared_ptr<Middleware>> middleware_;
-    std::vector<detail::ListenerEntry> listeners_;
+    comms::PrioritizedSet<std::shared_ptr<Transport>> transports_;
+    comms::PrioritizedSet<std::shared_ptr<Middleware>> middleware_;
+    comms::PrioritizedSet<detail::ListenerEntry> listeners_;
     std::atomic<detail::SubscriptionId> next_id_{0};
     std::atomic<bool> shutdown_{false};
     std::shared_ptr<Bus> self_alias_;

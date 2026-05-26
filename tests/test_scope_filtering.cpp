@@ -110,10 +110,10 @@ TEST(Scope, ConflictRoutesToOnError) {
 
 TEST(Scope, DefaultFlagsMixinAppliedAutomatically) {
     auto env = conduit::event(LocalEv{}).build();
-    EXPECT_TRUE(env.flags().has<conduit::flags::LocalOnly>());
+    EXPECT_TRUE(env.flags().contains<conduit::flags::LocalOnly>());
 
     auto env2 = conduit::event(RemoteEv{}).build();
-    EXPECT_TRUE(env2.flags().has<conduit::flags::RemoteOnly>());
+    EXPECT_TRUE(env2.flags().contains<conduit::flags::RemoteOnly>());
 }
 
 // event_traits<T> specialization for a foreign event.

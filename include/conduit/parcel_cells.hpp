@@ -81,8 +81,9 @@ public:
 };
 
 /// Parcel cell wrapping `conduit::flags::FlagSet`. JSON-encoded as an array of
-/// flag names; decoding uses `FlagSet::set_by_name` so unknown names round-trip
-/// as bare strings (matching today's wire format inside the envelope).
+/// flag names; decoding resolves each name through `comms::GlobalFlagRegistry`,
+/// so flag types must be registered (built-ins are; user-defined flags should
+/// use `COMMONS_REGISTER_FLAG`).
 class FlagSetCell : public parcel::BaseCell<FlagSetCell, flags::FlagSet> {
     using base_t = parcel::BaseCell<FlagSetCell, flags::FlagSet>;
 
@@ -96,11 +97,11 @@ public:
         std::string out;
         out += "[";
         bool first = true;
-        for (const auto& n : this->value.names()) {
+        for (const auto& f : this->value) {
             if (!first) {
                 out += ", ";
             }
-            out += n;
+            out += f.name;
             first = false;
         }
         out += "]";
@@ -109,8 +110,8 @@ public:
 
     [[nodiscard]] parcel::json_t to_json() const override {
         parcel::json_t arr = parcel::json_t::array();
-        for (const auto& n : this->value.names()) {
-            arr.push_back(n);
+        for (const auto& f : this->value) {
+            arr.push_back(std::string{f.name});
         }
         parcel::json_t j{
             {parcel::ICell::KEY_KIND, kind_id},
@@ -140,7 +141,9 @@ public:
         }
         flags::FlagSet fs;
         for (const auto& el : *it_v) {
-            fs.set_by_name(el.get<std::string>());
+            if (auto ref = comms::GlobalFlagRegistry::instance().find(el.get<std::string>())) {
+                fs.insert(*ref);
+            }
         }
         auto cell = std::make_shared<FlagSetCell>(std::move(fs));
         base_t::absorb_meta(j, cell);

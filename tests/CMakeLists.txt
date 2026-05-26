@@ -1,7 +1,6 @@
 include(GoogleTest)
 
 set(_conduit_test_sources
-    test_fixed_string.cpp
     test_flags.cpp
     test_glob.cpp
     test_metadata.cpp
@@ -20,6 +19,7 @@ set(_conduit_test_sources
     test_scope_filtering.cpp
     test_filtered_transport.cpp
     test_event_registry.cpp
+    test_priority.cpp
 )
 
 add_executable(conduit_tests ${_conduit_test_sources})

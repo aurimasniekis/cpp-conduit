@@ -47,7 +47,7 @@ int main(const int argc, char** argv) {
     }
     const std::string worker = argv[1];
 
-    std::signal(SIGINT, handle_sigint);
+    (void)std::signal(SIGINT, handle_sigint);
 
     const char* env_url = std::getenv("CONDUIT_NATS_BROKER");
     const std::string broker = (env_url != nullptr) ? env_url : "nats://localhost:4222";

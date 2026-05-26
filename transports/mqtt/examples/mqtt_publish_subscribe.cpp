@@ -30,7 +30,7 @@ struct DeviceConnected : conduit::Event<DeviceConnected, "device.alpha.connected
 
 int main() {
     const char* env_url = std::getenv("CONDUIT_MQTT_BROKER");
-    const std::string broker = env_url ? env_url : "tcp://localhost:1883";
+    const std::string broker = (env_url != nullptr) ? env_url : "tcp://localhost:1883";
 
     conduit::mqtt::Config pub_cfg;
     pub_cfg.url = broker;
@@ -53,7 +53,7 @@ int main() {
     std::atomic<int> hits{0};
     auto sub = sub_bus.listen<DeviceConnected>([&](const DeviceConnected& d) {
         std::cout << "received device_id=" << d.device_id << "\n";
-        hits++;
+        ++hits;
     });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(200));

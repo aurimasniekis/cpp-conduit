@@ -45,6 +45,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(metadata)
 
+set(COMMONS_BUILD_TESTS    OFF CACHE INTERNAL "")
+set(COMMONS_BUILD_EXAMPLES OFF CACHE INTERNAL "")
+set(COMMONS_BUILD_DOCS     OFF CACHE INTERNAL "")
+FetchContent_Declare(
+    commons
+    GIT_REPOSITORY https://github.com/aurimasniekis/cpp-commons.git
+    GIT_TAG        v0.1.1
+    FIND_PACKAGE_ARGS 0.1.1 NAMES commons
+)
+FetchContent_MakeAvailable(commons)
+
 if(CONDUIT_BUILD_TESTS)
     set(INSTALL_GTEST OFF CACHE INTERNAL "")
     set(BUILD_GMOCK   OFF CACHE INTERNAL "")
