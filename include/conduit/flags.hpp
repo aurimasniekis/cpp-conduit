@@ -34,7 +34,7 @@ using FlagSet = comms::FlagSet;
 // ---------------------------------------------------------------------------
 // Built-in flag tag types. Each carries a `DisplayInfo` (mdi icon + Colors::mui
 // palette color) and is registered with the `comms::GlobalFlagRegistry` so its
-// wire-name round-trips through `FlagSetCell`.
+// wire-name round-trips through `parcel::FlagSetCell`.
 // ---------------------------------------------------------------------------
 
 /// Force same-thread dispatch even in Queue / ThreadPool execution modes.
@@ -142,8 +142,8 @@ struct RemoteOnly : Flag<"remote_only"> {
     }
 };
 
-// Self-register the built-ins so `FlagSetCell` can resolve them by name on
-// decode and so `GlobalFlagRegistry::find("direct")` etc. just work.
+// Self-register the built-ins so `parcel::FlagSetCell` can resolve them by name
+// on decode and so `GlobalFlagRegistry::find("direct")` etc. just work.
 COMMONS_REGISTER_FLAG(Direct);
 COMMONS_REGISTER_FLAG(Durable);
 COMMONS_REGISTER_FLAG(Persistent);

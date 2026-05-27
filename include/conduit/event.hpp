@@ -27,7 +27,7 @@ namespace conduit {
 ///     declares the event's fields.
 ///   - a public default constructor (parcel's `from_json` builds via
 ///     `std::make_shared<Self>()`).
-template <typename Self, parcel::fixed_string Name>
+template <typename Self, parcel::FixedString Name>
 class Event : public parcel::SelfStructCell<Self> {
 public:
     /// Wire-stable kind id (`"conduit:event:" + Name`).
@@ -41,9 +41,9 @@ public:
         return Self::event_field_descriptors(b).build();
     }
 
-    /// Cell-level descriptive metadata. Defaults to empty; user events may
+    /// Cell-level descriptive display info. Defaults to empty; user events may
     /// shadow this static to attach `name`/`description` for tooling.
-    static parcel::descriptor::MetaInfo meta_info() {
+    static parcel::DisplayInfo display_info() {
         return {};
     }
 };

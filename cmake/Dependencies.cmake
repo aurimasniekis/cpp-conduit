@@ -23,16 +23,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ulid)
 
-set(PARCEL_BUILD_TESTS    OFF CACHE INTERNAL "")
-set(PARCEL_BUILD_EXAMPLES OFF CACHE INTERNAL "")
-set(PARCEL_BUILD_DOCS     OFF CACHE INTERNAL "")
+set(COMMONS_BUILD_TESTS    OFF CACHE INTERNAL "")
+set(COMMONS_BUILD_EXAMPLES OFF CACHE INTERNAL "")
+set(COMMONS_BUILD_DOCS     OFF CACHE INTERNAL "")
 FetchContent_Declare(
-    parcel
-    GIT_REPOSITORY https://github.com/aurimasniekis/cpp-parcel.git
-    GIT_TAG        v0.1.0
-    FIND_PACKAGE_ARGS 0.1.0 NAMES parcel
+    commons
+    GIT_REPOSITORY https://github.com/aurimasniekis/cpp-commons.git
+    GIT_TAG        v0.1.3
+    FIND_PACKAGE_ARGS 0.1.3 NAMES commons
 )
-FetchContent_MakeAvailable(parcel)
+FetchContent_MakeAvailable(commons)
 
 set(METADATA_BUILD_TESTS    OFF CACHE INTERNAL "")
 set(METADATA_BUILD_EXAMPLES OFF CACHE INTERNAL "")
@@ -40,21 +40,21 @@ set(METADATA_BUILD_DOCS     OFF CACHE INTERNAL "")
 FetchContent_Declare(
     metadata
     GIT_REPOSITORY https://github.com/aurimasniekis/cpp-metadata.git
-    GIT_TAG        v0.1.0
-    FIND_PACKAGE_ARGS 0.1.0 NAMES metadata
+    GIT_TAG        v0.2.0
+    FIND_PACKAGE_ARGS 0.2.0 NAMES metadata
 )
 FetchContent_MakeAvailable(metadata)
 
-set(COMMONS_BUILD_TESTS    OFF CACHE INTERNAL "")
-set(COMMONS_BUILD_EXAMPLES OFF CACHE INTERNAL "")
-set(COMMONS_BUILD_DOCS     OFF CACHE INTERNAL "")
+set(PARCEL_BUILD_TESTS    OFF CACHE INTERNAL "")
+set(PARCEL_BUILD_EXAMPLES OFF CACHE INTERNAL "")
+set(PARCEL_BUILD_DOCS     OFF CACHE INTERNAL "")
 FetchContent_Declare(
-    commons
-    GIT_REPOSITORY https://github.com/aurimasniekis/cpp-commons.git
-    GIT_TAG        v0.1.1
-    FIND_PACKAGE_ARGS 0.1.1 NAMES commons
+    parcel
+    GIT_REPOSITORY https://github.com/aurimasniekis/cpp-parcel.git
+    GIT_TAG        v0.2.0
+    FIND_PACKAGE_ARGS 0.2.0 NAMES parcel
 )
-FetchContent_MakeAvailable(commons)
+FetchContent_MakeAvailable(parcel)
 
 if(CONDUIT_BUILD_TESTS)
     set(INSTALL_GTEST OFF CACHE INTERNAL "")

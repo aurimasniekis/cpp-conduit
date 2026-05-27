@@ -132,9 +132,9 @@ target_link_libraries(my_app PRIVATE conduit::conduit)
 - Always-fetched dependencies:
   - `nlohmann/json` 3.12.0
   - `cpp-ulid` 1.0.0
-  - `cpp-parcel` 0.1.0
-  - `cpp-metadata` 0.1.0
-  - `cpp-commons` 0.1.1
+  - `cpp-parcel` 0.2.0
+  - `cpp-metadata` 0.2.0
+  - `cpp-commons` 0.1.3
 - Tests use GoogleTest 1.15.2 (only when `CONDUIT_BUILD_TESTS=ON`, default on top-level builds).
 - Each transport adapter brings its own dependencies, only when its option is enabled:
 

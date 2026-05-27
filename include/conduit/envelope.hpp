@@ -172,8 +172,8 @@ public:
     }
 
     static parcel::cell_type_descriptor_t descriptor() {
-        static const auto d = std::make_shared<parcel::SimpleCellTypeDescriptor<EventEnvelope>>(
-            parcel::descriptor::MetaInfo{
+        static const auto d =
+            std::make_shared<parcel::SimpleCellTypeDescriptor<EventEnvelope>>(parcel::DisplayInfo{
                 .name = "EventEnvelope",
                 .description = "Conduit event envelope (custom wire layout).",
             });
@@ -239,7 +239,7 @@ inline parcel::json_t EventEnvelope::to_json() const {
         {parcel::ICell::KEY_KIND, kind_id},
         {parcel::ICell::KEY_VALUE, std::move(v_obj)},
     };
-    this->inject_meta(out);
+    this->inject_display_info(out);
     return out;
 }
 
@@ -336,7 +336,7 @@ inline parcel::cell_t EventEnvelope::from_json(parcel::json_t const& j,
     core->payload_cell = reg.cell_from_json(v.at("payload"));
 
     auto out = std::make_shared<EventEnvelope>(std::move(core));
-    base_t::absorb_meta(j, out);
+    base_t::absorb_display_info(j, out);
     return out;
 }
 

@@ -42,7 +42,7 @@ class EventRegistry {
 public:
     EventRegistry() {
         auto reg = std::make_shared<parcel::ParcelRegistry>();
-        reg->register_cells<EventEnvelope, UlidCell, FlagSetCell>();
+        reg->register_cells<EventEnvelope, UlidCell>();
         registry_ = std::move(reg);
     }
 
