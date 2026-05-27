@@ -15,6 +15,11 @@
 
 namespace conduit {
 
+/// Wire-kind prefix shared by every conduit event type. Single source of truth,
+/// consumed by `Event::kind_id`, `EventEnvelope::name()`, and the event type
+/// registry.
+inline constexpr std::string_view event_kind_prefix = "conduit:event:";
+
 /// CRTP library base for conduit events.
 ///
 /// `Self` is the deriving event type (CRTP self); `Name` is the bare event
@@ -30,11 +35,11 @@ namespace conduit {
 template <typename Self, parcel::FixedString Name>
 class Event : public parcel::SelfStructCell<Self> {
 public:
-    /// Wire-stable kind id (`"conduit:event:" + Name`).
-    static constexpr std::string_view kind_id = parcel::id_join_lit_v<"conduit:event:", Name>;
-
     /// Bare event name (`Name`) — used by the bus to key listeners.
     static constexpr std::string_view event_name_v = Name.view();
+
+    /// Wire-stable kind id (`"conduit:event:" + Name`).
+    static constexpr std::string_view kind_id = parcel::id_join_v<event_kind_prefix, event_name_v>;
 
     static auto field_descriptors() {
         parcel::FieldsBuilder<Self> b;

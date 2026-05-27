@@ -19,6 +19,7 @@ set(_conduit_test_sources
     test_scope_filtering.cpp
     test_filtered_transport.cpp
     test_event_registry.cpp
+    test_event_type_registry.cpp
     test_priority.cpp
 )
 

@@ -467,6 +467,43 @@ The wire shape is stable:
 
 Each flag's wire name is the literal passed to `Flag<"...">`, so flag identity survives across processes and language boundaries without registration. `serialization::encode_json` / `encode_cbor` / `EventRegistry` are also exposed under the `conduit::serialization::` namespace for backwards compatibility.
 
+### Event type registry
+
+Separate from the per-`Bus` decode `EventRegistry` above, conduit keeps a process-wide **type catalog** for introspection: for each event type its `name`, its `shape`, and its optional `display_info` — plus a JSON schema derived from the underlying parcel descriptor. It decodes nothing, and it is **not** fed by the `Bus`: register a type explicitly with `add<T>()` or self-register it at static-init with `CONDUIT_REGISTER_EVENT(T)`.
+
+```cpp
+struct OrderCreated : conduit::Event<OrderCreated, "order.created"> {
+    std::string order_id;
+    double total = 0.0;
+    static auto& event_field_descriptors(parcel::FieldsBuilder<OrderCreated>& b) {
+        return b.field<&OrderCreated::order_id>("order_id").field<&OrderCreated::total>("total");
+    }
+};
+CONDUIT_REGISTER_EVENT(OrderCreated);   // at namespace scope
+
+// ... anywhere, before/without any Bus:
+auto& reg = conduit::global_event_types();
+reg.contains("order.created");                       // true (bare name)
+reg.contains("conduit:event:order.created");         // true (full kind)
+auto info = reg.find("order.created");               // std::optional<EventTypeInfo>
+auto all  = conduit::registered_event_types();       // every registered type
+auto schema = reg.schema("order.created");           // nlohmann::json (throws if unknown)
+```
+
+`EventTypeRegistry` is also usable standalone (`conduit::EventTypeRegistry local; local.add<OrderCreated>();`), independent of the global instance. `schema(name)` is the per-type descriptor schema:
+
+```json
+{
+  "kind": "conduit:event:order.created",
+  "display_info": { "name": "Catalog Order", "description": "An order placed in the catalog." },
+  "category": "struct",
+  "fields": [
+    { "key": "order_id", "kind": "string", "display_info": {}, "required": true },
+    { "key": "total",    "kind": "f64",    "display_info": {}, "required": true }
+  ]
+}
+```
+
 ### Talking to a real broker (MQTT example)
 
 ```cpp
@@ -560,6 +597,8 @@ bus.use_middleware<LogErrors>();
 | `conduit::flags::Flag<"name">`, `FlagSet`, built-in flags | `conduit/flags.hpp`                 | Type-tag-based flag bitset.                                               |
 | `conduit::EventRegistry`                                  | `conduit/serialization.hpp`         | Registers event types for wire decode.                                    |
 | `conduit::encode_json` / `encode_cbor`                    | `conduit/serialization.hpp`         | Encode an envelope to the wire.                                           |
+| `conduit::EventTypeRegistry` / `global_event_types()`     | `conduit/event_type_registry.hpp`   | Process-wide event *type* catalog (introspection + JSON schema).          |
+| `CONDUIT_REGISTER_EVENT(T)` / `registered_event_types()`  | `conduit/event_type_registry.hpp`   | Self-register a type into the catalog / snapshot all registered types.    |
 | `conduit::Metadata` (= `md::Metadata`), `Timestamps`      | `conduit/metadata.hpp`              | Envelope metadata (typed JSON-shaped tree) + timestamp struct.            |
 
 Built-in flags: `Direct`, `Durable`, `Persistent`, `NoMiddleware`, `RequireAck`, `Broadcast`, `LocalOnly`, `RemoteOnly`.

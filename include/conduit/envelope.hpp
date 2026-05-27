@@ -4,6 +4,7 @@
 /// @brief `EventEnvelope` — a parcel cell carrying conduit's envelope metadata
 ///        plus a polymorphic payload cell. Hand-written JSON layout.
 
+#include <conduit/event.hpp>
 #include <conduit/flags.hpp>
 #include <conduit/metadata.hpp>
 
@@ -91,10 +92,9 @@ public:
         if (!this->value || !this->value->payload_cell) {
             return {};
         }
-        constexpr std::string_view prefix = "conduit:event:";
         const std::string_view k = this->value->payload_cell->kind();
-        if (k.starts_with(prefix)) {
-            return k.substr(prefix.size());
+        if (k.starts_with(event_kind_prefix)) {
+            return k.substr(event_kind_prefix.size());
         }
 
         return k;
