@@ -89,4 +89,29 @@ TEST(Flags, BuiltInsRegisteredGlobally) {
     EXPECT_FALSE(reg.find("does_not_exist").has_value());
 }
 
+TEST(Flags, AllBuiltInsRegisteredGlobally) {
+    const auto& reg = comms::GlobalFlagRegistry::instance();
+
+    // Keyed off each flag's own `name`, so the assertion can't drift from the
+    // literal passed to `Flag<"...">`. Every built-in must resolve and land in
+    // the conduit category.
+    const auto check = [&reg]<typename F>() {
+        const auto ref = reg.find(F::name);
+        EXPECT_TRUE(ref.has_value()) << "built-in flag not registered globally: " << F::name;
+        if (ref.has_value()) {
+            EXPECT_EQ(ref->name, F::name);
+            EXPECT_EQ(ref->category, conduit::flags::ConduitFlagCategory::name);
+        }
+    };
+
+    check.operator()<conduit::flags::Direct>();
+    check.operator()<conduit::flags::Durable>();
+    check.operator()<conduit::flags::Persistent>();
+    check.operator()<conduit::flags::NoMiddleware>();
+    check.operator()<conduit::flags::RequireAck>();
+    check.operator()<conduit::flags::Broadcast>();
+    check.operator()<conduit::flags::LocalOnly>();
+    check.operator()<conduit::flags::RemoteOnly>();
+}
+
 }  // namespace
