@@ -127,7 +127,8 @@ private:
     /// Resolve a name-or-kind to a descriptor. Must be called under `mu_`.
     /// Reuses `event_kind_prefix`: a leading-prefix arg is treated as a full
     /// kind, otherwise the prefix is prepended.
-    [[nodiscard]] parcel::cell_type_descriptor_t resolve(const std::string_view name_or_kind) const {
+    [[nodiscard]] parcel::cell_type_descriptor_t
+    resolve(const std::string_view name_or_kind) const {
         if (name_or_kind.starts_with(event_kind_prefix)) {
             return registry_.find(name_or_kind);
         }

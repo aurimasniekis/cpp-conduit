@@ -70,8 +70,8 @@ A few things to notice in this example:
 include(FetchContent)
 FetchContent_Declare(
     conduit
-    URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.3.0.tar.gz
-    URL_HASH SHA256=299383c3bc84ec44ef0b1c9c63839b919ce19b14ec47c66dfa31289c119ec287
+    URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.4.0.tar.gz
+    URL_HASH SHA256=0000000000000000000000000000000000000000000000000000000000000000
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(conduit)
@@ -115,8 +115,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 FetchContent_Declare(
     conduit
-    URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.3.0.tar.gz
-    URL_HASH SHA256=299383c3bc84ec44ef0b1c9c63839b919ce19b14ec47c66dfa31289c119ec287
+    URL      https://github.com/aurimasniekis/cpp-conduit/archive/refs/tags/v0.4.0.tar.gz
+    URL_HASH SHA256=0000000000000000000000000000000000000000000000000000000000000000
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(conduit)
