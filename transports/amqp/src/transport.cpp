@@ -31,7 +31,6 @@
 #include <memory>
 #include <mutex>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -56,13 +55,6 @@ void set_nonblocking(const int fd) {
     }
     // NOLINTEND(cppcoreguidelines-pro-type-vararg, hicpp-vararg)
 }
-
-class TlsNotSupportedError : public std::runtime_error {
-public:
-    TlsNotSupportedError()
-        : std::runtime_error("conduit::amqp::Transport: amqps:// URLs require "
-                             "CONDUIT_TRANSPORT_AMQP_TLS=ON at build time") {}
-};
 
 }  // namespace
 
@@ -103,13 +95,12 @@ struct Transport::Impl final : public AMQP::TcpHandler {
     Impl(Config cfg, std::shared_ptr<EventRegistry> reg)
         : config(std::move(cfg)), registry(std::move(reg)) {
         if (config.routing_key.empty()) {
-            throw std::invalid_argument(
-                "conduit::amqp::Transport: Config::routing_key must be non-empty");
+            throw ConfigError("conduit::amqp::Transport: Config::routing_key must be non-empty");
         }
         if (config.exchange_type != "topic" && config.exchange_type != "direct" &&
             config.exchange_type != "fanout" && config.exchange_type != "headers") {
-            throw std::invalid_argument("conduit::amqp::Transport: Config::exchange_type must be "
-                                        "'topic', 'direct', 'fanout', or 'headers'");
+            throw ConfigError("conduit::amqp::Transport: Config::exchange_type must be "
+                              "'topic', 'direct', 'fanout', or 'headers'");
         }
         if (config.connection_name.empty()) {
             config.connection_name = "conduit-" + ulid::generate().string();
@@ -117,12 +108,13 @@ struct Transport::Impl final : public AMQP::TcpHandler {
 
 #ifndef CONDUIT_TRANSPORT_AMQP_TLS
         if (config.tls || config.url.starts_with("amqps://")) {
-            throw TlsNotSupportedError{};
+            throw TlsNotSupportedError("conduit::amqp::Transport: amqps:// URLs require "
+                                       "CONDUIT_TRANSPORT_AMQP_TLS=ON at build time");
         }
 #endif
 
         if (::pipe(wakeup_pipe.data()) != 0) {
-            throw std::runtime_error{"conduit::amqp::Transport: pipe() failed"};
+            throw AmqpError{"conduit::amqp::Transport: pipe() failed"};
         }
         set_nonblocking(wakeup_pipe[0]);
         set_nonblocking(wakeup_pipe[1]);
@@ -463,14 +455,13 @@ struct Transport::Impl final : public AMQP::TcpHandler {
 
         if (const auto status = fut.wait_for(config.connect_timeout);
             status != std::future_status::ready) {
-            throw std::runtime_error{"conduit::amqp::Transport::attach: connect/declare timed out"};
+            throw AmqpError{"conduit::amqp::Transport::attach: connect/declare timed out"};
         }
         if (const std::string err = fut.get(); !err.empty()) {
-            throw std::runtime_error{std::string{"conduit::amqp::Transport::attach: "} + err};
+            throw AmqpError{std::string{"conduit::amqp::Transport::attach: "} + err};
         }
         if (error_seen.load(std::memory_order_acquire)) {
-            throw std::runtime_error{std::string{"conduit::amqp::Transport::attach: "} +
-                                     last_error};
+            throw AmqpError{std::string{"conduit::amqp::Transport::attach: "} + last_error};
         }
     }
 

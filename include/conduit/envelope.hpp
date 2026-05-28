@@ -5,6 +5,7 @@
 ///        plus a polymorphic payload cell. Hand-written JSON layout.
 
 #include <conduit/event.hpp>
+#include <conduit/exception.hpp>
 #include <conduit/flags.hpp>
 #include <conduit/metadata.hpp>
 
@@ -15,7 +16,6 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -193,7 +193,7 @@ using EventEnvelopeView = EventEnvelope;
 
 inline parcel::json_t EventEnvelope::to_json() const {
     if (!this->value || !this->value->payload_cell) {
-        throw std::runtime_error{"EventEnvelope::to_json: envelope has no payload"};
+        throw SerializationError{"EventEnvelope::to_json: envelope has no payload"};
     }
     const auto& [id, flags, metadata, timestamps, correlation_id, causation_id, payload_cell] =
         *this->value;
@@ -272,21 +272,24 @@ inline parcel::cell_t EventEnvelope::from_json(parcel::json_t const& j,
     }
     const auto id_opt = ulid::Ulid::from_string(v.at("id").get<std::string>());
     if (!id_opt.has_value()) {
-        throw std::runtime_error{"EventEnvelope::from_json: invalid ULID"};
+        throw parcel::InvalidJsonException("EventEnvelope: invalid ULID for 'id'",
+                                           std::string(kind_id));
     }
     core->id = *id_opt;
 
     if (v.contains("correlation_id")) {
         const auto cid = ulid::Ulid::from_string(v.at("correlation_id").get<std::string>());
         if (!cid.has_value()) {
-            throw std::runtime_error{"EventEnvelope::from_json: invalid correlation_id ULID"};
+            throw parcel::InvalidJsonException("EventEnvelope: invalid ULID for 'correlation_id'",
+                                               std::string(kind_id));
         }
         core->correlation_id = *cid;
     }
     if (v.contains("causation_id")) {
         const auto cid = ulid::Ulid::from_string(v.at("causation_id").get<std::string>());
         if (!cid.has_value()) {
-            throw std::runtime_error{"EventEnvelope::from_json: invalid causation_id ULID"};
+            throw parcel::InvalidJsonException("EventEnvelope: invalid ULID for 'causation_id'",
+                                               std::string(kind_id));
         }
         core->causation_id = *cid;
     }

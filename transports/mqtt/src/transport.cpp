@@ -14,7 +14,6 @@
 #include <functional>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -34,8 +33,7 @@ struct Transport::Impl : public virtual ::mqtt::callback {
     Impl(Config cfg, std::shared_ptr<EventRegistry> reg)
         : config(std::move(cfg)), registry(std::move(reg)) {
         if (config.topic.empty()) {
-            throw std::invalid_argument(
-                "conduit::mqtt::Transport: Config::topic must be non-empty");
+            throw ConfigError("conduit::mqtt::Transport: Config::topic must be non-empty");
         }
         if (config.client_id.empty()) {
             config.client_id = "conduit-" + ulid::generate().string();
@@ -128,15 +126,15 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
     try {
         impl_->connect_blocking();
     } catch (const std::exception& e) {
-        throw std::runtime_error{std::string{"conduit::mqtt::Transport::attach: connect failed: "} +
-                                 e.what()};
+        throw MqttError{std::string{"conduit::mqtt::Transport::attach: connect failed: "} +
+                        e.what()};
     }
     if (impl_->client && impl_->client->is_connected()) {
         try {
             impl_->client->subscribe(impl_->config.topic, impl_->config.qos)
                 ->wait_for(std::chrono::seconds(5));
         } catch (const std::exception& e) {
-            throw std::runtime_error{
+            throw MqttError{
                 std::string{"conduit::mqtt::Transport::attach: topic subscribe failed: "} +
                 e.what()};
         }

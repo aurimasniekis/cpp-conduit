@@ -6,6 +6,7 @@
 
 #include <conduit/envelope.hpp>
 #include <conduit/event.hpp>
+#include <conduit/exception.hpp>
 #include <conduit/parcel_cells.hpp>
 
 #include <cstdint>
@@ -13,20 +14,11 @@
 #include <mutex>
 #include <shared_mutex>
 #include <span>
-#include <stdexcept>
 #include <vector>
 
 #include <parcel/parcel.h>
 
 namespace conduit {
-
-/// Raised by envelope/cell deserialization when the wire data is malformed.
-/// `parcel::ParcelException`-derived errors are mapped here at the registry
-/// boundary so callers can catch a single type.
-class SerializationError : public std::runtime_error {
-public:
-    using std::runtime_error::runtime_error;
-};
 
 /// Registers event cells for wire decoding. Wraps a `parcel::ParcelRegistry`,
 /// pre-registers the envelope cell and conduit's auxiliary cells, and exposes

@@ -15,7 +15,6 @@
 #include <functional>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -48,8 +47,7 @@ struct Transport::Impl {
     Impl(Config cfg, std::shared_ptr<EventRegistry> reg)
         : config(std::move(cfg)), registry(std::move(reg)) {
         if (config.subject.empty()) {
-            throw std::invalid_argument(
-                "conduit::nats::Transport: Config::subject must be non-empty");
+            throw ConfigError("conduit::nats::Transport: Config::subject must be non-empty");
         }
         if (config.name.empty()) {
             config.name = "conduit-" + ulid::generate().string();
@@ -143,8 +141,8 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
     s = natsOptions_Create(&impl_->opts);
     if (s != NATS_OK || impl_->opts == nullptr) {
         impl_->shutdown();
-        throw std::runtime_error{"conduit::nats::Transport::attach: natsOptions_Create failed: " +
-                                 nats_status_string(s)};
+        throw NatsError{"conduit::nats::Transport::attach: natsOptions_Create failed: " +
+                        nats_status_string(s)};
     }
 
     s = natsOptions_SetURL(impl_->opts, impl_->config.url.c_str());
@@ -194,22 +192,23 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
 #else
     if (impl_->config.tls) {
         impl_->shutdown();
-        throw std::runtime_error{"conduit::nats::Transport: Config::tls set but the transport was "
-                                 "built without CONDUIT_TRANSPORT_NATS_TLS"};
+        throw TlsNotSupportedError{
+            "conduit::nats::Transport: Config::tls set but the transport was "
+            "built without CONDUIT_TRANSPORT_NATS_TLS"};
     }
 #endif
 
     if (s != NATS_OK) {
         impl_->shutdown();
-        throw std::runtime_error{"conduit::nats::Transport::attach: option setup failed: " +
-                                 nats_status_string(s)};
+        throw NatsError{"conduit::nats::Transport::attach: option setup failed: " +
+                        nats_status_string(s)};
     }
 
     s = natsConnection_Connect(&impl_->conn, impl_->opts);
     if (s != NATS_OK || impl_->conn == nullptr) {
         impl_->shutdown();
-        throw std::runtime_error{"conduit::nats::Transport::attach: connect failed: " +
-                                 nats_status_string(s)};
+        throw NatsError{"conduit::nats::Transport::attach: connect failed: " +
+                        nats_status_string(s)};
     }
 
     if (impl_->config.queue_group) {
@@ -228,8 +227,8 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
     }
     if (s != NATS_OK || impl_->sub == nullptr) {
         impl_->shutdown();
-        throw std::runtime_error{"conduit::nats::Transport::attach: subscribe failed: " +
-                                 nats_status_string(s)};
+        throw NatsError{"conduit::nats::Transport::attach: subscribe failed: " +
+                        nats_status_string(s)};
     }
 
     impl_->connected.store(true, std::memory_order_release);

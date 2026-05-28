@@ -5,6 +5,7 @@
 
 #include <conduit/bus.hpp>
 #include <conduit/envelope.hpp>
+#include <conduit/exception.hpp>
 #include <conduit/listener.hpp>
 #include <conduit/serialization.hpp>
 #include <conduit/transport.hpp>
@@ -16,6 +17,12 @@
 #include <string>
 
 namespace conduit::mqtt {
+
+/// Operational/runtime failure inside the MQTT transport adapter.
+class MqttError : public conduit::TransportError {
+public:
+    using conduit::TransportError::TransportError;
+};
 
 /// Wire format used for encoded envelopes.
 enum class Format : std::uint8_t { Json, Cbor };

@@ -14,7 +14,6 @@
 #include <functional>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -60,8 +59,9 @@ namespace {
     }
 #else
     if (c.tls) {
-        throw std::runtime_error{"conduit::redis::Transport: Config::tls set but the transport was "
-                                 "built without CONDUIT_TRANSPORT_REDIS_TLS"};
+        throw TlsNotSupportedError{
+            "conduit::redis::Transport: Config::tls set but the transport was "
+            "built without CONDUIT_TRANSPORT_REDIS_TLS"};
     }
 #endif
     return opts;
@@ -88,8 +88,7 @@ struct Transport::Impl {
     Impl(Config cfg, std::shared_ptr<EventRegistry> reg)
         : config(std::move(cfg)), registry(std::move(reg)) {
         if (config.channel.empty()) {
-            throw std::invalid_argument(
-                "conduit::redis::Transport: Config::channel must be non-empty");
+            throw ConfigError("conduit::redis::Transport: Config::channel must be non-empty");
         }
     }
 
@@ -174,7 +173,7 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
         impl_->connected.store(true, std::memory_order_release);
     } catch (const std::exception& e) {
         impl_->shutdown();
-        throw std::runtime_error{std::string{"conduit::redis::Transport::attach: "} + e.what()};
+        throw RedisError{std::string{"conduit::redis::Transport::attach: "} + e.what()};
     }
 
     impl_->stop.store(false, std::memory_order_release);

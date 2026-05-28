@@ -17,11 +17,11 @@
 /// program-wide singleton reachable via `global_event_types()`.
 
 #include <conduit/event.hpp>
+#include <conduit/exception.hpp>
 
 #include <concepts>
 #include <optional>
 #include <shared_mutex>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -112,13 +112,13 @@ public:
     }
 
     /// Per-type JSON schema for the given name or kind.
-    /// @throws std::out_of_range if the type is not registered.
+    /// @throws conduit::UnknownEventTypeError if the type is not registered.
     [[nodiscard]] parcel::json_t schema(const std::string_view name_or_kind) const {
         std::shared_lock lock(mu_);
         const auto desc = resolve(name_or_kind);
         if (!desc) {
-            throw std::out_of_range{"EventTypeRegistry::schema: unknown event type '" +
-                                    std::string{name_or_kind} + "'"};
+            throw UnknownEventTypeError{"EventTypeRegistry::schema: unknown event type '" +
+                                        std::string{name_or_kind} + "'"};
         }
         return desc->to_json();
     }

@@ -15,7 +15,6 @@
 #include <functional>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -63,19 +62,19 @@ void validate(const Config& c) {
     switch (c.pattern) {
     case Pattern::PubSub:
         if (c.pub_endpoint.empty() && c.sub_endpoint.empty()) {
-            throw std::invalid_argument(
+            throw ConfigError(
                 "conduit::zmq::Transport: PubSub requires pub_endpoint or sub_endpoint");
         }
         break;
     case Pattern::PushPull:
         if (c.push_endpoint.empty() && c.pull_endpoint.empty()) {
-            throw std::invalid_argument(
+            throw ConfigError(
                 "conduit::zmq::Transport: PushPull requires push_endpoint or pull_endpoint");
         }
         break;
     case Pattern::RouterDealer:
         if (c.endpoint.empty()) {
-            throw std::invalid_argument("conduit::zmq::Transport: RouterDealer requires endpoint");
+            throw ConfigError("conduit::zmq::Transport: RouterDealer requires endpoint");
         }
         break;
     }
@@ -103,9 +102,8 @@ struct Transport::Impl {
         validate(config);
 #ifndef CONDUIT_ZMQ_HAS_CURVE
         if (config.curve) {
-            throw std::invalid_argument(
-                "conduit::zmq::Transport: Config::curve set but the transport was "
-                "built without CONDUIT_TRANSPORT_ZMQ_CURVE");
+            throw ConfigError("conduit::zmq::Transport: Config::curve set but the transport was "
+                              "built without CONDUIT_TRANSPORT_ZMQ_CURVE");
         }
 #endif
     }
@@ -254,7 +252,7 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
     }
     impl_->sink = [this](const EventEnvelopeView& v) { this->deliver_inbound(v); };
     impl_->error_sink = [this](const std::exception_ptr& ep) {
-        if (auto* b = this->bus()) {
+        if (const auto* b = this->bus()) {
             b->report_transport_error("zmq", ep);
         }
     };
@@ -325,7 +323,7 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
         impl_->connected.store(true, std::memory_order_release);
     } catch (const std::exception& e) {
         impl_->shutdown();
-        throw std::runtime_error{std::string{"conduit::zmq::Transport::attach: "} + e.what()};
+        throw ZmqError{std::string{"conduit::zmq::Transport::attach: "} + e.what()};
     }
 
     if (impl_->inbound) {

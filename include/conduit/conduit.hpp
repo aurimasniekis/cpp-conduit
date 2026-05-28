@@ -12,6 +12,7 @@
 #include <conduit/envelope.hpp>
 #include <conduit/event.hpp>
 #include <conduit/event_type_registry.hpp>
+#include <conduit/exception.hpp>
 #include <conduit/filtered_transport.hpp>
 #include <conduit/flags.hpp>
 #include <conduit/glob.hpp>

@@ -10,15 +10,12 @@
 #include <ulid/ulid.h>
 
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 
 #include <parcel/parcel.h>
 
 namespace conduit {
-
-class SerializationError;  // forward — defined in serialization.hpp.
 
 /// Parcel cell wrapping `ulid::Ulid`. JSON-encoded as a Crockford-base32 string
 /// (matches `ulid::Ulid::string()` / `ulid::Ulid::from_string`).
@@ -64,7 +61,8 @@ public:
         }
         const auto parsed = ulid::Ulid::from_string(it_v->get<std::string>());
         if (!parsed.has_value()) {
-            throw std::runtime_error{"UlidCell::from_json: invalid ULID string"};
+            throw parcel::InvalidJsonException("UlidCell: invalid ULID string",
+                                               std::string(kind_id));
         }
         auto cell = std::make_shared<UlidCell>(*parsed);
         base_t::absorb_display_info(j, cell);

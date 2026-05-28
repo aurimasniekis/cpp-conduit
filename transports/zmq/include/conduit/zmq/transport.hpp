@@ -5,6 +5,7 @@
 
 #include <conduit/bus.hpp>
 #include <conduit/envelope.hpp>
+#include <conduit/exception.hpp>
 #include <conduit/listener.hpp>
 #include <conduit/serialization.hpp>
 #include <conduit/transport.hpp>
@@ -16,6 +17,12 @@
 #include <string>
 
 namespace conduit::zmq {
+
+/// Operational/runtime failure inside the ZMQ transport adapter.
+class ZmqError : public conduit::TransportError {
+public:
+    using conduit::TransportError::TransportError;
+};
 
 /// Wire format used for encoded envelopes.
 enum class Format : std::uint8_t { Json, Cbor };
@@ -95,7 +102,7 @@ struct Config {
 class Transport : public conduit::Transport {
 public:
     /// Construct a ZMQ pipe. The constructor validates pattern-specific
-    /// endpoint config and throws `std::invalid_argument` if anything is
+    /// endpoint config and throws `conduit::ConfigError` if anything is
     /// missing.
     explicit Transport(Config config, std::shared_ptr<EventRegistry> registry = {});
 

@@ -533,10 +533,23 @@ One `mqtt::Transport` instance binds to a single topic and carries traffic in bo
 | Relay callback throws                                          | swallowed — the bus contract is fire-and-forget                                            |
 | Middleware itself throws                                       | swallowed inside the pipeline                                                              |
 
-Configuration-time failures **do** throw:
+Configuration-time failures **do** throw — and every exception conduit raises derives from `conduit::Exception` (defined in `conduit/exception.hpp`), so a single `catch (const conduit::Exception&)` handles them all:
 
-- `mqtt::Transport`, `nats::Transport`, `amqp::Transport`, `redis::Transport`, `zmq::Transport` throw `std::invalid_argument` from their constructor if required fields are empty (topic / subject / channel / etc.).
-- `attach()` throws `std::runtime_error` if it cannot connect to the broker — caught by `Bus::use_transport` only if the user wraps it; otherwise it propagates out.
+```
+std::runtime_error
+  conduit::Exception
+    conduit::ConfigError              // transport Config validation failed
+      conduit::TlsNotSupportedError   // TLS requested but feature flag off at build time
+    conduit::TransportError           // operational/runtime transport failure
+      conduit::amqp::AmqpError, conduit::mqtt::MqttError,
+      conduit::nats::NatsError, conduit::redis::RedisError,
+      conduit::zmq::ZmqError          // per-transport subclasses
+    conduit::SerializationError       // envelope/cell decode failure
+    conduit::UnknownEventTypeError    // EventTypeRegistry lookup miss
+```
+
+- `mqtt::Transport`, `nats::Transport`, `amqp::Transport`, `redis::Transport`, `zmq::Transport` throw `conduit::ConfigError` from their constructor if required fields are empty (topic / subject / channel / etc.), or `conduit::TlsNotSupportedError` when TLS is requested in a build that disabled it.
+- `attach()` throws the relevant per-transport `*Error` (e.g. `conduit::mqtt::MqttError`) — all `conduit::TransportError` subtypes — if it cannot connect to the broker.
 
 A typical pattern:
 
@@ -573,7 +586,7 @@ bus.use_middleware<LogErrors>();
 - **Mutations on an envelope copy mutate the original.** Envelopes share their core via `shared_ptr`. This is intentional — it is how middleware can stamp `trace_id` into metadata and have it reach the listeners. It also means `local.timestamps().received_at = ...` in a transport is visible everywhere.
 - **`flags::NoMiddleware` skips the whole middleware pipeline**, including your audit logging. Use it carefully — it is meant for noisy traffic that is already accounted for, not as a generic opt-out.
 - **Relay callbacks share the publisher's thread** when no thread-pool transport is in front of them. If your callback blocks, the publisher blocks.
-- **Broker connections happen during `attach`.** `bus.use_transport<conduit::mqtt::Transport>(cfg)` will block until it connects or fails — be prepared for `std::runtime_error` at startup.
+- **Broker connections happen during `attach`.** `bus.use_transport<conduit::mqtt::Transport>(cfg)` will block until it connects or fails — be prepared for `conduit::TransportError` (or the per-transport subclass) at startup.
 - **Pattern listeners use globs, not regex.** `*` matches within one segment (`order.*` matches `order.created` but not `order.line.added`); `**` crosses segments. Anything else matches literally.
 
 ## API overview
@@ -597,6 +610,7 @@ bus.use_middleware<LogErrors>();
 | `conduit::flags::Flag<"name">`, `FlagSet`, built-in flags | `conduit/flags.hpp`                 | Type-tag-based flag bitset.                                               |
 | `conduit::EventRegistry`                                  | `conduit/serialization.hpp`         | Registers event types for wire decode.                                    |
 | `conduit::encode_json` / `encode_cbor`                    | `conduit/serialization.hpp`         | Encode an envelope to the wire.                                           |
+| `conduit::Exception` + `ConfigError`, `TransportError`, … | `conduit/exception.hpp`             | Root exception hierarchy thrown by conduit (catch one type, not many).    |
 | `conduit::EventTypeRegistry` / `global_event_types()`     | `conduit/event_type_registry.hpp`   | Process-wide event *type* catalog (introspection + JSON schema).          |
 | `CONDUIT_REGISTER_EVENT(T)` / `registered_event_types()`  | `conduit/event_type_registry.hpp`   | Self-register a type into the catalog / snapshot all registered types.    |
 | `conduit::Metadata` (= `md::Metadata`), `Timestamps`      | `conduit/metadata.hpp`              | Envelope metadata (typed JSON-shaped tree) + timestamp struct.            |

@@ -110,7 +110,8 @@ TEST(EventTypeRegistry, SchemaExposesStructFields) {
 }
 
 TEST(EventTypeRegistry, SchemaThrowsForUnknownType) {
-    EXPECT_THROW((void)conduit::global_event_types().schema("does.not.exist"), std::out_of_range);
+    EXPECT_THROW((void)conduit::global_event_types().schema("does.not.exist"),
+                 conduit::UnknownEventTypeError);
 }
 
 TEST(EventTypeRegistry, RegisteredTypesListsEventAndExcludesBuiltins) {
