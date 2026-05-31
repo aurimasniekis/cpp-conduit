@@ -4,9 +4,11 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(nlohmann_json 3.12.0)
 find_dependency(ulid 1.0.0)
-find_dependency(commons 0.1.3)
+find_dependency(commons 0.1.5)
 find_dependency(metadata 0.2.0)
-find_dependency(parcel 0.2.0)
+find_dependency(parcel 0.2.2)
+find_dependency(threadman 0.1.0)
+find_dependency(prom 0.1.0)
 find_dependency(Threads)
 
 include("${CMAKE_CURRENT_LIST_DIR}/conduitTargets.cmake")
