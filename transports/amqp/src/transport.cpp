@@ -17,6 +17,8 @@
 
 #include <ulid/ulid.h>
 
+#include <threadman/manager.hpp>
+
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -31,9 +33,9 @@
 #include <memory>
 #include <mutex>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -68,8 +70,7 @@ struct Transport::Impl final : public AMQP::TcpHandler {
     std::array<int, 2> wakeup_pipe{-1, -1};
     int amqp_fd = -1;
     int amqp_flags = 0;
-    std::thread io_thread;
-    std::atomic<bool> stop{false};
+    std::unique_ptr<threadman::ManagedThread> io_thread;
 
     // Posted-task queue (consumed by the IO thread).
     std::mutex queue_mu;
@@ -236,10 +237,10 @@ struct Transport::Impl final : public AMQP::TcpHandler {
         }
     }
 
-    void io_loop() {
-        while (!stop.load(std::memory_order_acquire)) {
+    void io_loop(const std::stop_token& tok) {
+        while (!tok.stop_requested()) {
             drain_tasks();
-            if (stop.load(std::memory_order_acquire)) {
+            if (tok.stop_requested()) {
                 break;
             }
 
@@ -295,12 +296,14 @@ struct Transport::Impl final : public AMQP::TcpHandler {
     // -- attach / shutdown -------------------------------------------------
 
     void start_io_thread() {
-        stop.store(false, std::memory_order_release);
-        io_thread = std::thread([this]() { io_loop(); });
+        threadman::ManagedThread::Options topts;
+        topts.name = "conduit:amqp-io";
+        io_thread = std::make_unique<threadman::ManagedThread>(
+            std::move(topts), [this](const std::stop_token& tok) { io_loop(tok); });
     }
 
     void shutdown() noexcept {
-        if (!io_thread.joinable()) {
+        if (!io_thread) {
             connection.reset();
             channel.reset();
             return;
@@ -327,11 +330,14 @@ struct Transport::Impl final : public AMQP::TcpHandler {
             fut.wait_for(std::chrono::seconds(2));
         } catch (...) {}
 
-        stop.store(true, std::memory_order_release);
+        io_thread->request_stop();
         wake();
         try {
-            io_thread.join();
+            if (io_thread->joinable()) {
+                io_thread->join();
+            }
         } catch (...) {}
+        io_thread.reset();
         channel.reset();
         connection.reset();
     }

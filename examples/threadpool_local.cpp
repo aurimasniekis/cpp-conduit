@@ -19,8 +19,12 @@ struct Job : conduit::Event<Job, "job"> {
 
 int main() {
     conduit::Bus bus;
-    bus.use_transport<conduit::local::Transport>(conduit::local::Execution::ThreadPool,
-                                                 conduit::local::ThreadPoolConfig{.threads = 4});
+    // ThreadPoolConfig is threadman's ThreadPoolOptions — here a fixed 4-worker
+    // pool. Leave the defaults for an on-demand pool that scales 1..hardware
+    // concurrency, or set max_queue_size for blocking back-pressure.
+    bus.use_transport<conduit::local::Transport>(
+        conduit::local::Execution::ThreadPool,
+        conduit::local::ThreadPoolConfig{.min_workers = 4, .max_workers = 4});
 
     std::atomic<int> count{0};
     auto sub = bus.listen<Job>([&](const Job& j) { count += j.id; });

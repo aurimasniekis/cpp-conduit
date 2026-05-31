@@ -70,13 +70,15 @@ target_link_libraries(conduit INTERFACE
     parcel::parcel
     metadata::metadata
     commons::commons
+    threadman::threadman
+    prom::prom
     Threads::Threads
 )
 
-if(CONDUIT_INSTALL AND (DEFINED nlohmann_json_SOURCE_DIR OR DEFINED ulid_SOURCE_DIR OR DEFINED parcel_SOURCE_DIR OR DEFINED metadata_SOURCE_DIR OR DEFINED commons_SOURCE_DIR))
+if(CONDUIT_INSTALL AND (DEFINED nlohmann_json_SOURCE_DIR OR DEFINED ulid_SOURCE_DIR OR DEFINED parcel_SOURCE_DIR OR DEFINED metadata_SOURCE_DIR OR DEFINED commons_SOURCE_DIR OR DEFINED threadman_SOURCE_DIR OR DEFINED prom_SOURCE_DIR OR DEFINED logman_SOURCE_DIR OR DEFINED dimval_SOURCE_DIR OR DEFINED spdlog_SOURCE_DIR))
     message(STATUS
         "conduit: CONDUIT_INSTALL disabled — a fetched dependency cannot be re-exported. "
-        "Install nlohmann_json / ulid / parcel / metadata / commons via system package or find_package to re-enable install rules."
+        "Install nlohmann_json / ulid / parcel / metadata / commons / threadman / prom / logman / dimval / spdlog via system package or find_package to re-enable install rules."
     )
     set(CONDUIT_INSTALL OFF)
 endif()

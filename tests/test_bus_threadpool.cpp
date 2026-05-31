@@ -25,8 +25,8 @@ struct P : conduit::Event<P, "p"> {
 
 TEST(BusThreadPool, AllPublishedEventsObservedAfterDrain) {
     conduit::Bus bus;
-    bus.use_transport<conduit::local::Transport>(conduit::local::Execution::ThreadPool,
-                                                 conduit::local::ThreadPoolConfig{.threads = 4});
+    bus.use_transport<conduit::local::Transport>(
+        conduit::local::Execution::ThreadPool, conduit::local::ThreadPoolConfig{.max_workers = 4});
 
     std::atomic<int> count{0};
     auto sub = bus.listen<P>([&](const P&) { ++count; });
@@ -41,8 +41,8 @@ TEST(BusThreadPool, AllPublishedEventsObservedAfterDrain) {
 
 TEST(BusThreadPool, ShutdownIsSafe) {
     conduit::Bus bus;
-    bus.use_transport<conduit::local::Transport>(conduit::local::Execution::ThreadPool,
-                                                 conduit::local::ThreadPoolConfig{.threads = 2});
+    bus.use_transport<conduit::local::Transport>(
+        conduit::local::Execution::ThreadPool, conduit::local::ThreadPoolConfig{.max_workers = 2});
     auto sub =
         bus.listen<P>([&](const P&) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); });
     for (int i = 0; i < 50; ++i) {
@@ -55,7 +55,7 @@ TEST(BusThreadPool, BoundedQueueBlocksProducer) {
     conduit::Bus bus;
     bus.use_transport<conduit::local::Transport>(
         conduit::local::Execution::ThreadPool,
-        conduit::local::ThreadPoolConfig{.threads = 1, .queue_capacity = 4});
+        conduit::local::ThreadPoolConfig{.max_workers = 1, .max_queue_size = 4});
 
     std::atomic<int> got{0};
     auto sub = bus.listen<P>([&](const P&) {

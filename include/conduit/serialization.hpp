@@ -7,7 +7,6 @@
 #include <conduit/envelope.hpp>
 #include <conduit/event.hpp>
 #include <conduit/exception.hpp>
-#include <conduit/parcel_cells.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -34,7 +33,7 @@ class EventRegistry {
 public:
     EventRegistry() {
         auto reg = std::make_shared<parcel::ParcelRegistry>();
-        reg->register_cells<EventEnvelope, UlidCell>();
+        reg->register_cells<EventEnvelope>();
         registry_ = std::move(reg);
     }
 

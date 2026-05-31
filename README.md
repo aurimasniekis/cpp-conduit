@@ -132,9 +132,13 @@ target_link_libraries(my_app PRIVATE conduit::conduit)
 - Always-fetched dependencies:
   - `nlohmann/json` 3.12.0
   - `cpp-ulid` 1.0.0
-  - `cpp-parcel` 0.2.0
+  - `cpp-parcel` 0.2.2
   - `cpp-metadata` 0.2.0
-  - `cpp-commons` 0.1.3
+  - `cpp-commons` 0.1.5
+  - `cpp-threadman` 0.1.0 — all threading (in-process executor pool + transport background threads)
+  - `cpp-prom` 0.1.0 — always-on event metrics
+- Metrics are **always-on**: every `Bus` records `conduit_*` series directly from its publish / fan-out /
+  error / subscription paths.
 - Tests use GoogleTest 1.15.2 (only when `CONDUIT_BUILD_TESTS=ON`, default on top-level builds).
 - Each transport adapter brings its own dependencies, only when its option is enabled:
 
@@ -320,13 +324,17 @@ bus.use_transport<conduit::local::Transport>();
 // Queue: one worker thread drains in FIFO order. publish() returns immediately.
 bus.use_transport<conduit::local::Transport>(conduit::local::Execution::Queue);
 
-// ThreadPool: N workers. Use ThreadPoolConfig::queue_capacity for backpressure.
+// ThreadPool: a worker pool. ThreadPoolConfig is threadman's ThreadPoolOptions,
+// so the full pool surface is available — dynamic scaling (min_workers /
+// max_workers), idle retirement, a custom name, etc. Defaults scale on demand
+// from 1 to hardware_concurrency; set min_workers == max_workers for fixed size.
+// max_queue_size is a blocking back-pressure bound.
 bus.use_transport<conduit::local::Transport>(
     conduit::local::Execution::ThreadPool,
-    conduit::local::ThreadPoolConfig{.threads = 4, .queue_capacity = 256});
+    conduit::local::ThreadPoolConfig{.max_workers = 4, .max_queue_size = 256});
 ```
 
-`queue_capacity = 0` is unbounded — convenient for tests, hazardous in production if a consumer falls behind. Set a positive cap so `submit()` blocks the producer when the queue is full.
+`max_queue_size = 0` is unbounded — convenient for tests, hazardous in production if a consumer falls behind. Set a positive cap so `dispatch()` blocks the producer when the queue is full (conduit blocks rather than dropping; threadman's native reject-on-overflow is not used here).
 
 `flags::Direct` on an envelope overrides the mode and forces inline delivery even when the local transport is queued or pooled — useful for "this must happen synchronously" events like config reload:
 
@@ -577,7 +585,7 @@ bus.use_middleware<LogErrors>();
 - **A `Subscription` you forget to keep alive cancels immediately.** `bus.listen(...)` returns a `[[nodiscard]]` handle whose destructor unsubscribes. `bus.listen<T>([]{ ... });` (no assignment) is almost always a bug.
 - **`bus.publish(...)` with no transport attached** still delivers to local listeners — there is a fallback that fans out inline. This is convenient for tests; in production, attach at least one transport so the routing matrix runs.
 - **`local::Transport` in Queue / ThreadPool mode** runs listeners on a different thread. Capture-by-reference into `bus.listen` requires that the captured object outlive the bus. `bus.drain()` waits for the current backlog; `bus.shutdown()` is implicit in the destructor and is idempotent.
-- **`queue_capacity = 0` is unbounded.** A slow consumer + fast producer + unbounded queue is the classic memory-leak shape. Pick a real number.
+- **`max_queue_size = 0` is unbounded.** A slow consumer + fast producer + unbounded queue is the classic memory-leak shape. Pick a real number.
 - **Events must be default-constructible.** The registry deserializes by `std::make_shared<T>()` and then populates fields. A missing default constructor is a compile error inside `parcel`'s machinery — the message is long; the fix is short.
 - **`payload_as<T>()` returns `nullptr` when the envelope's payload is some other type.** This happens when a pattern listener (`"order.*"`) fires for an event whose C++ type the listener does not know — always null-check before dereferencing.
 - **Inbound decode errors are swallowed by the transport** and reported via `Middleware::on_transport_error`. If you do not install a middleware that handles it, malformed wire data is silently dropped.
@@ -634,6 +642,7 @@ The `examples/` directory contains compact programs that map to specific concept
 | `examples/relay_to_callback.cpp`       | `relay::Transport` routes matching events to a callback.                |
 | `examples/filtered_transport.cpp`      | Per-leg `FilteredTransport` predicates.                                 |
 | `examples/serialization_roundtrip.cpp` | JSON + CBOR encode/decode via `EventRegistry`.                          |
+| `examples/metrics.cpp`                 | Always-on `conduit_*` prom metrics — inspect the `conduit` scope.       |
 | `transports/<name>/examples/*.cpp`     | Broker-specific recipes — publish/subscribe, multi-topic, queue groups. |
 
 ## Testing

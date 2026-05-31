@@ -7,6 +7,8 @@
 #include <conduit/redis/transport.hpp>
 #include <conduit/serialization.hpp>
 
+#include <threadman/manager.hpp>
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -14,8 +16,8 @@
 #include <functional>
 #include <memory>
 #include <span>
+#include <stop_token>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -81,8 +83,7 @@ struct Transport::Impl {
     std::unique_ptr<sw::redis::Redis>
         subscriber_conn;  // owns the subscriber's underlying connection
     std::unique_ptr<sw::redis::Subscriber> subscriber;
-    std::thread subscriber_thread;
-    std::atomic<bool> stop{false};
+    std::unique_ptr<threadman::ManagedThread> subscriber_thread;
     std::atomic<bool> connected{false};
 
     Impl(Config cfg, std::shared_ptr<EventRegistry> reg)
@@ -93,13 +94,16 @@ struct Transport::Impl {
     }
 
     void shutdown() noexcept {
-        stop.store(true, std::memory_order_release);
-        if (subscriber_thread.joinable()) {
+        if (subscriber_thread) {
+            subscriber_thread->request_stop();
             try {
-                subscriber_thread.join();
+                if (subscriber_thread->joinable()) {
+                    subscriber_thread->join();
+                }
             } catch (...) {
                 // ignore — we're shutting down
             }
+            subscriber_thread.reset();
         }
         subscriber.reset();
         subscriber_conn.reset();
@@ -176,19 +180,21 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
         throw RedisError{std::string{"conduit::redis::Transport::attach: "} + e.what()};
     }
 
-    impl_->stop.store(false, std::memory_order_release);
-    impl_->subscriber_thread = std::thread([this]() {
-        while (!impl_->stop.load(std::memory_order_acquire)) {
-            try {
-                impl_->subscriber->consume();
-            } catch (const sw::redis::TimeoutError&) {
-                continue;  // expected — socket_timeout fired, recheck stop flag
-            } catch (...) {
-                // connection dropped or subscriber destroyed — exit cleanly
-                break;
+    threadman::ManagedThread::Options topts;
+    topts.name = "conduit:redis-sub";
+    impl_->subscriber_thread = std::make_unique<threadman::ManagedThread>(
+        std::move(topts), [this](const std::stop_token& tok) {
+            while (!tok.stop_requested()) {
+                try {
+                    impl_->subscriber->consume();
+                } catch (const sw::redis::TimeoutError&) {
+                    continue;  // expected — socket_timeout fired, recheck stop token
+                } catch (...) {
+                    // connection dropped or subscriber destroyed — exit cleanly
+                    break;
+                }
             }
-        }
-    });
+        });
 }
 
 void Transport::detach() noexcept {

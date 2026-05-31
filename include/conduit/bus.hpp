@@ -9,6 +9,7 @@
 #include <conduit/flags.hpp>
 #include <conduit/glob.hpp>
 #include <conduit/listener.hpp>
+#include <conduit/metrics.hpp>
 #include <conduit/middleware.hpp>
 #include <conduit/serialization.hpp>
 #include <conduit/transport.hpp>
@@ -63,6 +64,12 @@ public:
 
     ~Bus() override {
         shutdown();
+        // Balance the always-on `conduit_listeners` gauge for any subscriptions
+        // still registered when the bus dies (they must not outlive it).
+        std::scoped_lock lock(mu_);
+        for (const auto& e : listeners_) {
+            metrics::listeners().labels(event_labels(e.name_or_pattern)).dec();
+        }
     }
 
     Bus(const Bus&) = delete;
@@ -254,9 +261,12 @@ public:
             if (!match) {
                 continue;
             }
+            const auto labels = event_labels(name);
+            metrics::listener_invocations().labels(labels).inc();
             try {
                 e.handler(v);
             } catch (...) {
+                metrics::listener_errors().labels(labels).inc();
                 run_on_error(v, std::current_exception());
             }
         }
@@ -268,6 +278,9 @@ public:
     /// directly.
     void report_transport_error(const std::string_view transport,
                                 const std::exception_ptr& ep) const noexcept {
+        metrics::transport_errors()
+            .labels(prom::Labels{{"transport", std::string{transport}}})
+            .inc();
         std::vector<std::shared_ptr<Middleware>> snap;
         {
             std::scoped_lock lock(mu_);
@@ -287,13 +300,24 @@ public:
         std::scoped_lock lock(mu_);
         for (auto it = listeners_.begin(); it != listeners_.end(); ++it) {
             if (it->id == id) {
+                const auto labels = event_labels(it->name_or_pattern);
                 listeners_.erase(it);
+                metrics::listeners().labels(labels).dec();
                 return;
             }
         }
     }
 
 private:
+    /// `{event=<name>}` label set for the event-level `conduit_*` series. The
+    /// bus emits the most specific label it can (the concrete event name, or a
+    /// listener's name/pattern); bounding cardinality — dropping the label at
+    /// scrape/relabel time if a deployment doesn't want per-event series — is
+    /// left to the consumer.
+    [[nodiscard]] static prom::Labels event_labels(const std::string_view event) {
+        return prom::Labels{{"event", std::string{event}}};
+    }
+
     void attach_transport(std::shared_ptr<Transport> t) {
         t->attach(*this);
         std::scoped_lock lock(mu_);
@@ -346,6 +370,7 @@ private:
                                             const bool is_pattern,
                                             const int priority) {
         const auto id = next_id_.fetch_add(1, std::memory_order_relaxed) + 1;
+        const auto labels = event_labels(name_or_pattern);
         {
             std::scoped_lock lock(mu_);
             listeners_.insert(
@@ -353,6 +378,7 @@ private:
                 detail::ListenerEntry{
                     id, std::move(handler), std::move(name_or_pattern), is_pattern, priority});
         }
+        metrics::listeners().labels(labels).inc();
         return Subscription{
             std::static_pointer_cast<detail::SubscriptionBackref>(shared_from_this_safe()), id};
     }
@@ -373,7 +399,9 @@ private:
         const bool local_only = local.flags().contains<flags::LocalOnly>();
         const bool remote_only = local.flags().contains<flags::RemoteOnly>();
 
-        local.timestamps().published_at = std::chrono::system_clock::now();
+        const auto publish_started = std::chrono::system_clock::now();
+        local.timestamps().published_at = publish_started;
+        metrics::events_published().labels(event_labels(local.name())).inc();
 
         // Middleware before_dispatch — unless NoMiddleware.
         std::vector<std::shared_ptr<Middleware>> mw_snapshot;
@@ -389,6 +417,7 @@ private:
                 try {
                     if (!m->before_dispatch(local)) {
                         proceed = false;
+                        metrics::events_dropped().labels(event_labels(local.name())).inc();
                         break;
                     }
                 } catch (...) {
@@ -412,6 +441,7 @@ private:
                          std::make_exception_ptr(std::runtime_error(
                              "LocalOnly + RemoteOnly conflict — envelope dropped")));
             proceed = false;
+            metrics::events_dropped().labels(event_labels(local.name())).inc();
         }
 
         if (proceed) {
@@ -448,6 +478,13 @@ private:
                     } catch (...) {}
                 }
             }
+        }
+
+        const auto elapsed =
+            std::chrono::duration<double>(std::chrono::system_clock::now() - publish_started)
+                .count();
+        if (elapsed >= 0.0) {
+            metrics::dispatch_seconds().labels(event_labels(local.name())).observe(elapsed);
         }
     }
 

@@ -6,6 +6,7 @@
 #include <conduit/serialization.hpp>
 #include <conduit/zmq/transport.hpp>
 
+#include <threadman/manager.hpp>
 #include <zmq.hpp>
 
 #include <atomic>
@@ -15,8 +16,8 @@
 #include <functional>
 #include <memory>
 #include <span>
+#include <stop_token>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -93,8 +94,7 @@ struct Transport::Impl {
     std::unique_ptr<::zmq::socket_t> inbound;
     std::unique_ptr<::zmq::socket_t> shutdown_pub;
     std::unique_ptr<::zmq::socket_t> shutdown_sub;
-    std::thread worker;
-    std::atomic<bool> stop{false};
+    std::unique_ptr<threadman::ManagedThread> worker;
     std::atomic<bool> connected{false};
 
     Impl(Config cfg, std::shared_ptr<EventRegistry> reg)
@@ -135,17 +135,22 @@ struct Transport::Impl {
     }
 
     void shutdown() noexcept {
-        stop.store(true, std::memory_order_release);
+        if (worker) {
+            worker->request_stop();
+        }
         if (shutdown_pub) {
             try {
                 constexpr char wake = 'x';
                 shutdown_pub->send(::zmq::buffer(&wake, 1), ::zmq::send_flags::dontwait);
             } catch (...) {}
         }
-        if (worker.joinable()) {
+        if (worker) {
             try {
-                worker.join();
+                if (worker->joinable()) {
+                    worker->join();
+                }
             } catch (...) {}
+            worker.reset();
         }
         try {
             inbound.reset();
@@ -188,8 +193,8 @@ struct Transport::Impl {
         }
     }
 
-    void run_loop() const {
-        while (!stop.load(std::memory_order_acquire)) {
+    void run_loop(const std::stop_token& tok) const {
+        while (!tok.stop_requested()) {
             std::array<::zmq::pollitem_t, 2> items = {{
                 {static_cast<void*>(*inbound), 0, ZMQ_POLLIN, 0},
                 {static_cast<void*>(*shutdown_sub), 0, ZMQ_POLLIN, 0},
@@ -327,8 +332,10 @@ void Transport::attach_with_sink(Bus& bus, InboundSink sink) {
     }
 
     if (impl_->inbound) {
-        impl_->stop.store(false, std::memory_order_release);
-        impl_->worker = std::thread([this]() { impl_->run_loop(); });
+        threadman::ManagedThread::Options topts;
+        topts.name = "conduit:zmq-worker";
+        impl_->worker = std::make_unique<threadman::ManagedThread>(
+            std::move(topts), [this](const std::stop_token& tok) { impl_->run_loop(tok); });
     }
 }
 
